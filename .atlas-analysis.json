@@ -1,0 +1,156 @@
+{
+  "projectType": "saas",
+  "projectName": "SociApp",
+  "projectDescription": "Comprehensive management platform for neighborhood associations and nonprofits to digitalize member, activity, project, and financial administration",
+  "theme": "linden",
+  "primaryColor": "#48b486",
+  "lightColor": "#eef8f5",
+  "darkColor": "#324b5b",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/member-management",
+              "features/activities",
+              "features/projects",
+              "features/configuration",
+              "features/messaging"
+            ]
+          },
+          {
+            "group": "User Guides",
+            "pages": [
+              "guides/authentication",
+              "guides/user-roles",
+              "guides/dashboard",
+              "guides/docker-deployment"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "development/architecture",
+              "development/frontend",
+              "development/backend",
+              "development/database"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Authentication",
+            "pages": [
+              "api/auth/register",
+              "api/auth/login",
+              "api/auth/refresh"
+            ]
+          },
+          {
+            "group": "Users",
+            "pages": [
+              "api/users/get-users",
+              "api/users/create-user",
+              "api/users/edit-user",
+              "api/users/delete-user"
+            ]
+          },
+          {
+            "group": "Activities",
+            "pages": [
+              "api/activities/get-activities",
+              "api/activities/create-activity",
+              "api/activities/update-activity",
+              "api/activities/delete-activity"
+            ]
+          },
+          {
+            "group": "Projects",
+            "pages": [
+              "api/projects/get-projects",
+              "api/projects/create-project",
+              "api/projects/update-project",
+              "api/projects/delete-project"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "api/configuration/association-data",
+              "api/configuration/board-members",
+              "api/configuration/banks",
+              "api/configuration/donations"
+            ]
+          },
+          {
+            "group": "Messaging",
+            "pages": [
+              "api/mail/send-mail",
+              "api/mail/send-all"
+            ]
+          },
+          {
+            "group": "Statistics",
+            "pages": [
+              "api/stats/dashboard"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Member and user management with detailed contact information and membership control",
+    "Activity scheduling and monitoring with instructor assignments",
+    "Project tracking with budget control, document management, and funding sources",
+    "Association configuration including board management, banking, and donations",
+    "Integrated messaging system for individual and mass email communications",
+    "Dashboard with statistics and analytics",
+    "Role-based access control with JWT authentication",
+    "Dark/light mode support with responsive mobile-first design",
+    "Docker-based deployment with Vue.js frontend and NestJS backend"
+  ],
+  "publicApiSurface": [
+    "POST /auth/register - User registration",
+    "POST /auth/login - User authentication",
+    "POST /auth/refresh - Token refresh",
+    "GET /auth/me - Get current user profile",
+    "GET /users - Get all users",
+    "POST /users - Create new user",
+    "POST /users/edit - Edit existing user",
+    "POST /users/delete - Delete user",
+    "GET /activities - Get all activities",
+    "POST /activities - Create new activity",
+    "PUT /activities/:id - Update activity",
+    "DELETE /activities/:id - Delete activity",
+    "GET /projects - Get all projects",
+    "POST /projects - Create new project with PDF uploads",
+    "PUT /projects/:id - Update project",
+    "DELETE /projects/:id - Delete project",
+    "GET /configuracion/datos - Get association data",
+    "PUT /configuracion/datos - Update association data",
+    "GET /configuracion/junta - Get board members",
+    "POST /configuracion/junta - Add board member",
+    "GET /configuracion/bancos - Get bank accounts",
+    "POST /configuracion/bancos - Add bank account",
+    "GET /configuracion/donativos - Get donations",
+    "POST /configuracion/donativos - Add donation",
+    "POST /mail/send - Send email to specific recipients",
+    "POST /mail/send-all - Send email to all members",
+    "GET /stats - Get dashboard statistics"
+  ]
+}
