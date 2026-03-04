@@ -1,0 +1,108 @@
+---
+title: 'Get All Projects'
+api: 'GET /projects'
+---
+
+Retrieves all projects with their associated activities and responsible users.
+
+## Authentication
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication
+</ParamField>
+
+**Required Roles:** `monitor` or `admin`
+
+## Response
+
+<ResponseField name="idProyecto" type="number">
+  Unique identifier for the project
+</ResponseField>
+
+<ResponseField name="nombre" type="string">
+  Project name
+</ResponseField>
+
+<ResponseField name="descripcion" type="string">
+  Project description
+</ResponseField>
+
+<ResponseField name="estado" type="string">
+  Current project status
+</ResponseField>
+
+<ResponseField name="presupuesto" type="number">
+  Project budget (decimal)
+</ResponseField>
+
+<ResponseField name="fuenteFinanciacion" type="string">
+  Funding source
+</ResponseField>
+
+<ResponseField name="startDate" type="date">
+  Project start date (YYYY-MM-DD)
+</ResponseField>
+
+<ResponseField name="endDate" type="date">
+  Project end date (YYYY-MM-DD)
+</ResponseField>
+
+<ResponseField name="notas" type="string">
+  Additional notes about the project
+</ResponseField>
+
+<ResponseField name="subproyectos" type="array">
+  Array of subproject identifiers
+</ResponseField>
+
+<ResponseField name="actividades" type="array">
+  Array of activity IDs associated with the project
+</ResponseField>
+
+<ResponseField name="pdfPath" type="array">
+  Array of PDF file paths uploaded for the project. Each path is in the format `/uploads/projects/{filename}`
+</ResponseField>
+
+<ResponseField name="responsable" type="object">
+  User object representing the project manager
+</ResponseField>
+
+<ResponseField name="responsableId" type="number">
+  ID of the responsible user
+</ResponseField>
+
+<ResponseField name="detallesActividades" type="array">
+  Array of activity details with id and nombre for each associated activity
+</ResponseField>
+
+## Example Response
+
+```json
+[
+  {
+    "idProyecto": 1,
+    "nombre": "Community Development Project",
+    "descripcion": "A project to improve community infrastructure",
+    "estado": "En Progreso",
+    "presupuesto": 50000.00,
+    "fuenteFinanciacion": "Municipal Budget",
+    "startDate": "2024-01-15",
+    "endDate": "2024-12-31",
+    "notas": "Quarterly reviews required",
+    "subproyectos": [],
+    "actividades": ["1", "2", "3"],
+    "pdfPath": ["/uploads/projects/pdf-1234567890-123456789.pdf"],
+    "responsable": {
+      "IdUsuario": 5,
+      "Nombre": "John",
+      "Apellido": "Doe"
+    },
+    "responsableId": 5,
+    "detallesActividades": [
+      { "id": 1, "nombre": "Planning" },
+      { "id": 2, "nombre": "Execution" },
+      { "id": 3, "nombre": "Review" }
+    ]
+  }
+]
+```

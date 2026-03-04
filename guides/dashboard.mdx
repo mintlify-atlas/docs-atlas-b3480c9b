@@ -1,0 +1,338 @@
+---
+title: Dashboard Overview
+description: Understanding the SociApp dashboard statistics and navigation
+---
+
+The SociApp dashboard provides real-time statistics and insights about users, activities, and projects. It displays key metrics with interactive visualizations.
+
+## Dashboard Features
+
+The dashboard displays seven key statistics cards with a comprehensive chart visualization:
+
+
+
+### Statistics Cards
+
+Each statistic card shows:
+- **Title**: The metric name
+- **Count**: Current total
+- **Icon**: Visual identifier
+- **Link**: Direct navigation to filtered view
+- **Color**: Distinctive background color
+
+```typescript
+// frontend/src/views/HomeView.vue:8
+const stats = ref([
+  { title: 'Socios', data: 0, icon: 'people', href: '/usuarios?search=Socio', background: '#20a8d8' },
+  { title: 'No Socios', data: 0, icon: 'people', href: '/usuarios?search=noSocio', background: '#63c2de' },
+  { title: 'Actividades', data: 0, icon: 'event', href: '/actividades', background: '#fec106' },
+  { title: 'Proyectos', data: 0, icon: 'assignment', href:'/proyectos', background: '#f86c6b' },
+  { title: 'Activos', data: 0, icon: 'play_circle', href:'/proyectos?search=Activo', background: '#2196F3' },
+  { title: 'Pendientes', data: 0, icon: 'hourglass_empty', href:'/proyectos?search=Pendiente', background: '#FF9800' },
+  { title: 'Trabajadores', data: 0, icon:'person', href:'/usuarios?search=trabajador', background: '#20a8d8' }
+])
+```
+
+## Available Metrics
+
+<CardGroup cols={2}>
+  <Card title="Socios" icon="users" color="#20a8d8">
+    Count of members with full membership status. Click to view all members.
+  </Card>
+
+  <Card title="No Socios" icon="user-xmark" color="#63c2de">
+    Count of non-members or inactive memberships. Click to view all non-members.
+  </Card>
+
+  <Card title="Actividades" icon="calendar" color="#fec106">
+    Total number of activities in the system. Click to view all activities.
+  </Card>
+
+  <Card title="Proyectos" icon="folder" color="#f86c6b">
+    Total number of projects. Click to view all projects.
+  </Card>
+
+  <Card title="Activos" icon="circle-play" color="#2196F3">
+    Count of active projects currently in progress.
+  </Card>
+
+  <Card title="Pendientes" icon="hourglass" color="#FF9800">
+    Count of pending projects awaiting action.
+  </Card>
+
+  <Card title="Trabajadores" icon="briefcase" color="#20a8d8">
+    Number of users with worker role.
+  </Card>
+</CardGroup>
+
+## Statistics Service
+
+The backend provides statistics through a dedicated service:
+
+```typescript
+// backend/src/stats/stats.service.ts:10
+async getDashboardStats() {
+  try {
+    // Single aggregated query to get all counts
+    const [stats] = await this.dataSource.query(`
+      SELECT
+        SUM(CASE WHEN socio = 1 THEN 1 ELSE 0 END) AS "socios",
+        SUM(CASE WHEN socio = 2 THEN 1 ELSE 0 END) AS "noSocios",
+        (SELECT COUNT(*) FROM actividades) AS "actividades",
+        (SELECT COUNT(*) FROM proyectos) AS "proyectos",
+        (SELECT COUNT(*) FROM proyectos WHERE estado = 'Activo') AS "proyectosActivos",
+        (SELECT COUNT(*) FROM proyectos WHERE estado = 'Pendiente') AS "proyectosPendientes",
+        (SELECT COUNT(*) FROM usuarios WHERE categoria = "Trabajador") AS "trabajadores"
+      FROM usuarios;
+    `);
+
+    // Safe number parsing
+    return {
+      socios: parseInt(stats.socios, 10) || 0,
+      noSocios: parseInt(stats.noSocios, 10) || 0,
+      actividades: parseInt(stats.actividades, 10) || 0,
+      proyectos: parseInt(stats.proyectos, 10) || 0,
+      proyectosActivos: parseInt(stats.proyectosActivos, 10) || 0,
+      proyectosPendientes: parseInt(stats.proyectosPendientes, 10) || 0,
+      trabajadores: parseInt(stats.trabajadores, 10) || 0,
+    };
+  } catch (error) {
+    this.logger.error('Failed to fetch dashboard stats', error.stack);
+    throw error;
+  }
+}
+```
+
+### Performance Optimization
+
+<AccordionGroup>
+  <Accordion title="Single Query">
+    All statistics are fetched in a single aggregated SQL query for optimal performance.
+  </Accordion>
+
+  <Accordion title="Caching">
+    Statistics are cached for 5 minutes to reduce database load:
+
+    ```typescript
+    // backend/src/stats/stats.controller.ts:15
+    @Get()
+    @Roles('monitor', 'admin')
+    @CacheKey('dashboard_stats')
+    @CacheTTL(300000) // 5 minutes
+    getStats() {
+      return this.statsService.getDashboardStats();
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Safe Parsing">
+    All counts are safely parsed to integers with fallback to 0.
+  </Accordion>
+</AccordionGroup>
+
+## Loading Statistics
+
+The frontend loads statistics on component mount:
+
+```typescript
+// frontend/src/views/HomeView.vue:22
+onMounted(async () => {
+  try {
+    const response = await api.get('/stats')
+    const data = response.data
+    
+    if (stats?.value?.[0]) stats.value[0].data = data.socios ?? 0;
+    if (stats?.value?.[1]) stats.value[1].data = data.noSocios ?? 0;
+    if (stats?.value?.[2]) stats.value[2].data = data.actividades ?? 0;
+    if (stats?.value?.[3]) stats.value[3].data = data.proyectos ?? 0;
+    if (stats?.value?.[4]) stats.value[4].data = data.proyectosActivos ?? 0;
+    if (stats?.value?.[5]) stats.value[5].data = data.proyectosPendientes ?? 0;
+    if (stats?.value?.[6]) stats.value[6].data = data.trabajadores ?? 0;
+  } catch (error) {
+    console.error('Error al cargar estadísticas:', error)
+  }
+})
+```
+
+## Chart Visualization
+
+The dashboard includes an interactive chart powered by Chart.js:
+
+```typescript
+// frontend/src/views/HomeView.vue:49
+const chartData = computed(() => ({
+  labels: stats.value.map((stat: any) => stat.title),
+  datasets: [
+    {
+      label: 'Estadísticas',
+      data: stats.value.map((stat: any) => stat.data),
+      borderColor: '#20a8d8',
+      backgroundColor: 'rgba(32,168,216,0.2)',
+      tension: 0.4,
+      fill: true,
+      pointBackgroundColor: '#20a8d8',
+      pointBorderColor: '#20a8d8',
+      pointBorderWidth: 2,
+      pointRadius: 5,
+      pointHoverRadius: 7,
+    }
+  ]
+}))
+```
+
+### Chart Configuration
+
+```typescript
+// frontend/src/views/HomeView.vue:69
+const chartOptions = computed(() => {
+  return {
+    plugins: {
+      legend: {
+        display: false,
+      },
+    },
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          color: isDark.value ? '#e0e0e0' : '#666',
+        },
+        grid: {
+          color: isDark.value ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+        },
+      },
+      x: {
+        ticks: {
+          color: isDark.value ? '#e0e0e0' : '#666',
+        },
+        grid: {
+          color: isDark.value ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+        },
+      },
+    },
+    animation: {
+      duration: 2000,
+      easing: 'easeOutQuart'
+    }
+  }
+})
+```
+
+## Dark Mode Support
+
+The dashboard automatically adapts to dark mode:
+
+```typescript
+// frontend/src/views/HomeView.vue:19
+const isDark = ref(document.documentElement.classList.contains('dark'))
+
+onMounted(async () => {
+  // ... statistics loading ...
+  
+  // Observe changes in dark mode class
+  const observer = new MutationObserver(() => {
+    isDark.value = document.documentElement.classList.contains('dark')
+  })
+  
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class']
+  })
+})
+```
+
+Chart colors automatically adjust based on the theme:
+- **Light Mode**: Dark text (#666) and subtle grid lines
+- **Dark Mode**: Light text (#e0e0e0) and lighter grid lines
+
+## Navigation
+
+### Quick Filters
+
+Each statistic card links to a filtered view:
+
+```typescript
+// Example: View all members
+href: '/usuarios?search=Socio'
+
+// Example: View active projects
+href: '/proyectos?search=Activo'
+```
+
+### Access Control
+
+Dashboard statistics require authentication and proper role:
+
+```typescript
+// backend/src/stats/stats.controller.ts:9
+@Controller('stats')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@UseInterceptors(CacheInterceptor)
+export class StatsController {
+  @Get()
+  @Roles('monitor', 'admin')
+  getStats() {
+    return this.statsService.getDashboardStats();
+  }
+}
+```
+
+Only users with `monitor` or `admin` roles can access statistics.
+
+## Animations
+
+Statistic cards animate on load for visual appeal:
+
+```vue
+<!-- frontend/src/views/HomeView.vue:110 -->
+<StatisticsCard
+  v-for="(stat, index) in stats"
+  :key="stat.title"
+  type="stats"
+  v-bind="stat"
+  :animate="true"
+  class="animate-card"
+  :style="{ animationDelay: `${index * 0.1}s` }"
+/>
+```
+
+```css
+/* frontend/src/views/HomeView.vue:170 */
+.animate-card {
+  opacity: 0;
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Error Handling" icon="triangle-exclamation">
+    Always handle API errors gracefully and show fallback UI
+  </Card>
+
+  <Card title="Loading States" icon="spinner">
+    Display loading indicators while fetching statistics
+  </Card>
+
+  <Card title="Responsive Design" icon="mobile">
+    Ensure dashboard works well on all screen sizes
+  </Card>
+
+  <Card title="Performance" icon="gauge-high">
+    Leverage caching and optimized queries for fast load times
+  </Card>
+</CardGroup>

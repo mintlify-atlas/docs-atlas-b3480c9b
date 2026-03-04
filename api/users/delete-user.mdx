@@ -1,0 +1,79 @@
+---
+title: "Delete User"
+api: "POST /users/delete"
+description: "Permanently remove a user from the system"
+---
+
+## Authentication
+
+This endpoint requires JWT authentication and role-based authorization.
+
+**Required Guards:**
+- `JwtAuthGuard` - Valid JWT token required
+- `RolesGuard` - User must have one of the allowed roles
+
+**Allowed Roles:**
+- `monitor`
+- `admin`
+
+## Request Body
+
+<ParamField body="dni" type="string" required>
+  National identification number (DNI) of the user to delete
+</ParamField>
+
+## Response
+
+Returns a success confirmation object.
+
+<ResponseField name="success" type="boolean" required>
+  Indicates whether the deletion was successful (true)
+</ResponseField>
+
+## Example Request
+
+```bash
+curl -X POST https://api.sociapp.com/users/delete \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dni": "45678912C"
+  }'
+```
+
+## Example Response
+
+```json
+{
+  "success": true
+}
+```
+
+## Error Responses
+
+### User Not Found
+
+If no user exists with the provided DNI:
+
+```json
+{
+  "statusCode": 500,
+  "message": "User not found"
+}
+```
+
+## Notes
+
+- This operation permanently deletes the user from the database
+- The deletion is **irreversible** - there is no soft delete or recovery mechanism
+- The user is identified by their DNI (national identification number)
+- All user data will be permanently removed from the system
+- Consider implementing a backup or audit trail mechanism before deletion in production environments
+- If the user is not found, an error is thrown with a 500 status code
+
+## Security Considerations
+
+- Only users with `monitor` or `admin` roles can delete users
+- The endpoint uses POST method (not DELETE) for consistency with other operations
+- User data is not logged during deletion to protect sensitive information
+- Ensure proper authorization checks are in place before calling this endpoint

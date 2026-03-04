@@ -1,0 +1,469 @@
+---
+title: Project Management
+description: Comprehensive project management system for tracking association projects, budgets, timelines, and documentation
+---
+
+## Overview
+
+The Project Management feature provides a complete solution for planning, tracking, and managing association projects from inception to completion. It handles project creation, budget management, activity association, document storage, and progress tracking with detailed project views.
+
+Projects serve as containers for organizing related activities, tracking financial resources, assigning responsibilities, and maintaining project documentation including PDF files.
+
+## Key Functionality
+
+<CardGroup cols={2}>
+  <Card title="Project Planning" icon="clipboard-list">
+    Create projects with descriptions, timelines, budgets, and funding sources
+  </Card>
+  <Card title="Document Management" icon="file-pdf">
+    Upload and preview multiple PDF documents per project with integrated viewer
+  </Card>
+  <Card title="Activity Linking" icon="network-wired">
+    Associate multiple activities with projects for comprehensive activity tracking
+  </Card>
+  <Card title="Status Tracking" icon="tasks">
+    Track project status (Activo, Pendiente, Finalizado) with automatic sorting
+  </Card>
+</CardGroup>
+
+## User Interface Workflow
+
+The project management interface (Proyectos.vue) implements a dual-view system:
+
+### List View
+
+The main project list displays all projects with:
+
+1. **Search**: Real-time search across project name, responsible person, and description
+2. **Pagination**: 10 projects per page with range indicator
+3. **Smart Sorting**:
+   - Finalizado projects appear at the bottom
+   - Active projects sorted by end date (soonest first)
+   - Completed projects sorted by end date (newest first)
+
+4. **Project Cards**: Each card shows:
+   - Project name and responsible person
+   - Status badge (Activo/Pendiente/Finalizado) with color coding
+   - Edit and delete action buttons
+   - Click card to view detailed project view
+
+### Detail View
+
+Clicking any project opens a comprehensive detail page with:
+
+1. **Header Section**:
+   - Project name with folder icon
+   - Status badge
+   - Back button to return to list
+   - Edit and delete actions
+
+2. **Metrics Cards**:
+   - Budget total (Presupuesto Total)
+   - Start date (Fecha de Inicio)
+
+3. **Information Sections**:
+   - **Responsable**: Assigned project manager (nombre + apellidos)
+   - **Financiación**: Funding source (fuenteFinanciacion)
+   - **Descripción**: Full project description with line breaks
+   - **Documentación**: PDF document viewer and management
+   - **Seguimiento y Notas**: Project notes and tracking information
+   - **Capacidad y Vínculos**: Activity count and linked activities list
+
+4. **PDF Preview**:
+   - Multiple PDF support with file selector dropdown
+   - Embedded PDF preview using PdfPreview component
+   - "Open in new tab" button for full document viewing
+
+5. **Linked Activities**:
+   - List of all associated activities
+   - Clickable links to activity search (RouterLink to `/actividades?search={activityName}`)
+   - Activity count display
+
+## Data Model
+
+Projects are stored in the `Proyecto` entity:
+
+```typescript
+@Entity('proyectos')
+export class Proyecto {
+  @PrimaryGeneratedColumn()
+  idProyecto: number;
+
+  @Column({ length: 255 })
+  nombre: string;
+
+  @Column({ type: 'text', nullable: true })
+  descripcion: string;
+
+  @Column({ length: 50 })
+  estado: string;
+
+  @ManyToOne(() => Usuarios)
+  @JoinColumn({ name: 'Responsable' })
+  responsable: Usuarios;
+
+  @Column('decimal')
+  presupuesto: number;
+
+  @Column({ length: 150, nullable: true })
+  fuenteFinanciacion: string;
+
+  @Column({ type: 'date' })
+  startDate: Date;
+
+  @Column({ type: 'date', nullable: true })
+  endDate: Date;
+
+  @Column({ type: 'text', nullable: true })
+  notas: string;
+
+  @Column('simple-array', { nullable: true })
+  subproyectos: string[];
+
+  @Column('simple-array', { nullable: true })
+  actividades: string[];
+
+  @OneToMany(() => Activity, (activity) => activity.id)
+  actividadesList: Activity[];
+
+  @Column('simple-array', { nullable: true })
+  pdfPath: string[];
+}
+```
+
+### Key Fields
+
+- **idProyecto**: Primary key, auto-generated
+- **nombre**: Project name (max 255 characters)
+- **descripcion**: Detailed project description (text field)
+- **estado**: Project status - "Activo", "Pendiente", or "Finalizado"
+- **responsable**: ManyToOne relation to Usuarios (project manager)
+- **presupuesto**: Decimal field for budget amount
+- **fuenteFinanciacion**: Source of funding (max 150 characters)
+- **startDate/endDate**: Project timeline (date fields)
+- **notas**: Additional tracking notes (text field)
+- **subproyectos**: Array of subproject identifiers (simple-array)
+- **actividades**: Array of activity IDs (simple-array)
+- **actividadesList**: OneToMany relation to Activity entities
+- **pdfPath**: Array of PDF file paths (simple-array, up to 10 files)
+
+<Note>
+The `simple-array` column type stores arrays as comma-separated strings in the database, automatically serialized/deserialized by TypeORM.
+</Note>
+
+## API Endpoints
+
+All endpoints require JWT authentication with `monitor` or `admin` roles.
+
+### GET /projects
+
+Retrieve all projects with populated relations.
+
+```typescript
+@Get()
+@Roles('monitor', 'admin')
+getAll()
+```
+
+**Response**: Array of Proyecto objects with responsable and actividadesList populated
+
+### POST /projects
+
+Create a new project with optional PDF uploads.
+
+```typescript
+@Post()
+@Roles('monitor', 'admin')
+@UseInterceptors(FilesInterceptor('pdf', 10, {...}))
+create(@Body() createProjectDto: CreateProjectDto, @UploadedFiles() files)
+```
+
+**Request**: Multipart form-data or JSON
+
+**Form Fields**:
+- `nombre`: string (required)
+- `descripcion`: string (optional)
+- `estado`: string (required)
+- `responsableId`: number (required)
+- `presupuesto`: number (required)
+- `fuenteFinanciacion`: string (optional)
+- `startDate`: date string (required)
+- `endDate`: date string (optional)
+- `notas`: string (optional)
+- `subproyectos`: string[] (optional)
+- `activityIds`: number[] (optional)
+- `pdf`: File[] (optional, max 10 files)
+
+**File Upload Configuration**:
+- Max files: 10
+- Allowed format: PDF only
+- Max file size: 10MB per file
+- Storage: `/uploads/projects/` directory
+- Filename format: `pdf-{timestamp}-{random}.pdf`
+
+**Response**: Created Proyecto object with pdfPath array
+
+<Warning>
+Only PDF files are accepted. Other file types will return a BadRequestException.
+</Warning>
+
+### PUT /projects/:id
+
+Update existing project with optional new PDF uploads.
+
+```typescript
+@Put(':id')
+@Roles('monitor', 'admin')
+@UseInterceptors(FilesInterceptor('pdf', 10, {...}))
+update(@Param('id') id, @Body() updateProjectDto, @UploadedFiles() files)
+```
+
+**URL Parameters**:
+- `id`: Project ID (number)
+
+**Request Body**: Same as POST, all fields optional
+
+**Response**: Updated Proyecto object
+
+<Tip>
+When updating with new PDFs, the new files are added to the existing pdfPath array. To replace files, you must manage the array explicitly.
+</Tip>
+
+### DELETE /projects/:id
+
+Delete a project.
+
+```typescript
+@Delete(':id')
+@Roles('monitor', 'admin')
+delete(@Param('id') id: string)
+```
+
+**URL Parameters**:
+- `id`: Project ID (number)
+
+**Response**: Deletion confirmation
+
+### GET /projects/activities
+
+Retrieve available activities for project association.
+
+```typescript
+@Get('activities')
+@Roles('monitor', 'admin')
+getActivities()
+```
+
+**Response**: Array of Activity objects
+
+## Frontend Implementation
+
+### Form Data Handling
+
+The frontend builds FormData for file uploads:
+
+```javascript
+const buildFormData = (data) => {
+  const formData = new FormData()
+  Object.keys(data).forEach(key => {
+    const value = data[key]
+    if (value === undefined || value === null || value === '') return
+
+    if (key === 'pdf') {
+      // Handle multiple PDF files
+      if (Array.isArray(value)) {
+        value.forEach(file => {
+          if (file instanceof File) formData.append('pdf', file)
+        })
+      } else if (value instanceof File) {
+        formData.append('pdf', value)
+      }
+    } else if (Array.isArray(value)) {
+      // Handle arrays (activityIds, subproyectos)
+      value.forEach(v => {
+        if (v !== undefined && v !== null && v !== '') {
+          formData.append(key, v)
+        }
+      })
+    } else {
+      formData.append(key, value)
+    }
+  })
+  return formData
+}
+```
+
+### Search and Sorting
+
+```javascript
+const filteredProyectos = computed(() => {
+  let base = projects.value
+  const query = searchQuery.value.toLowerCase().trim()
+  
+  let scoredResults = base.map((p) => {
+    let score = 0
+    if (!query) return { project: p, score: 0 }
+
+    const fields = {
+      nombre: p.nombre?.toString().toLowerCase() || '',
+      responsable: p.responsable?.nombre?.toString().toLowerCase() || '',
+      descripcion: p.descripcion?.toString().toLowerCase() || '',
+    }
+
+    // Weighted scoring: nombre (100/50/10), responsable (5), descripcion (2)
+    if (fields.nombre === query) score += 100
+    else if (fields.nombre.startsWith(query)) score += 50
+    else if (fields.nombre.includes(query)) score += 10
+
+    if (fields.responsable.includes(query)) score += 5
+    if (fields.descripcion.includes(query)) score += 2
+
+    return { project: p, score }
+  })
+
+  if (query) {
+    scoredResults = scoredResults.filter(item => item.score > 0)
+  }
+
+  return scoredResults.sort((a, b) => {
+    // Search score takes priority
+    if (query && a.score !== b.score) {
+      return b.score - a.score
+    }
+
+    // Then sort by status and date
+    const aFinalizado = a.project.estado?.toLowerCase() === 'finalizado'
+    const bFinalizado = b.project.estado?.toLowerCase() === 'finalizado'
+
+    if (aFinalizado !== bFinalizado) {
+      return aFinalizado ? 1 : -1  // Finalizados at bottom
+    }
+
+    // Sort by endDate
+    if (a.project.endDate && b.project.endDate) {
+      const dateA = new Date(a.project.endDate).getTime()
+      const dateB = new Date(b.project.endDate).getTime()
+      if (aFinalizado) return dateB - dateA  // Newest first for completed
+      return dateA - dateB  // Soonest first for active
+    }
+
+    return 0
+  }).map(item => item.project)
+})
+```
+
+### PDF Preview
+
+Multiple PDF support with selector:
+
+```vue
+<div v-if="selectedProject.pdfPath.length > 1" class="pdf-selector">
+  <label>Seleccionar archivo:</label>
+  <select v-model="currentPdfIndex">
+    <option v-for="(path, index) in selectedProject.pdfPath" :key="index" :value="index">
+      Archivo {{ index + 1 }} - {{ path.split('/').pop() }}
+    </option>
+  </select>
+</div>
+
+<div class="pdf-preview-wrapper">
+  <PdfPreview :pdf-url="`${BASE_URL}${selectedProject.pdfPath[currentPdfIndex]?.trim()}`" />
+</div>
+```
+
+## Use Cases
+
+### Creating a New Project
+
+1. Click "Agregar Proyecto" button
+2. Fill in project details:
+   - Name and description
+   - Select responsible member from Usuarios
+   - Set budget and funding source
+   - Define start and end dates
+   - Select activities to associate
+   - Upload project documentation (PDFs)
+3. Submit form
+4. System creates project and stores PDF files
+5. Project appears in list with "Activo" or "Pendiente" status
+
+### Project Progress Tracking
+
+1. Search for project by name
+2. Click to open detail view
+3. Review current status and timeline
+4. Check linked activities progress
+5. Add notes in "Seguimiento y Notas" section
+6. Update status to "Finalizado" when complete
+7. System automatically moves to bottom of list
+
+### Document Management
+
+1. Edit existing project
+2. Upload additional PDF documents (max 10 total)
+3. In detail view, use dropdown to select document
+4. Preview PDF in embedded viewer
+5. Click "Abrir en pestaña nueva" for full view
+6. Documents stored at `/uploads/projects/`
+
+### Activity Association
+
+1. Create or edit project
+2. Select activities from activityIds dropdown
+3. Save project
+4. View linked activities in detail view
+5. Click activity name to search activities page
+6. System maintains bidirectional relationship
+
+## Status Badge Colors
+
+```css
+.status-badge.activo { 
+  background-color: rgba(76, 175, 80, 0.2); 
+  color: #4CAF50; 
+}
+.status-badge.pendiente { 
+  background-color: rgba(255, 152, 0, 0.2); 
+  color: #FF9800; 
+}
+.status-badge.finalizado { 
+  background-color: rgba(158, 158, 158, 0.2); 
+  color: #9E9E9E; 
+}
+```
+
+## Integration with Other Features
+
+- **Activities**: Projects can link multiple activities via `activityIds` field
+- **Member Management**: Project responsable selected from Usuarios table
+- **Configuration**: Project data contributes to association reporting and statistics
+
+## Responsive Design
+
+The detail view is fully responsive with mobile optimizations:
+
+```css
+@media (max-width: 768px) {
+  .detail-grid, .detail-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .detail-content.card {
+    padding: 20px 15px;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+}
+```
+
+<Tip>
+Use the project detail view's "Capacidad y Vínculos" section to quickly see how many activities are associated with each project.
+</Tip>
+
+## Related Documentation
+
+- [Activities](/features/activities) - Learn how to create activities and link them to projects
+- [Member Management](/features/member-management) - Understand responsable assignment

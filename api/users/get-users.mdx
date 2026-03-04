@@ -1,0 +1,153 @@
+---
+title: "Get Users"
+api: "GET /users"
+description: "Retrieve all users in the system with their complete information"
+---
+
+## Authentication
+
+This endpoint requires JWT authentication and role-based authorization.
+
+**Required Guards:**
+- `JwtAuthGuard` - Valid JWT token required
+- `RolesGuard` - User must have one of the allowed roles
+
+**Allowed Roles:**
+- `monitor`
+- `admin`
+
+## Response
+
+Returns an array of all users sorted alphabetically by name.
+
+<ResponseField name="users" type="array" required>
+  Array of user objects
+  
+  <ResponseField name="id" type="number" required>
+    Unique user identifier (IdUsuario)
+  </ResponseField>
+  
+  <ResponseField name="nombre" type="string" required>
+    User's first name
+  </ResponseField>
+  
+  <ResponseField name="apellidos" type="string" required>
+    User's last name
+  </ResponseField>
+  
+  <ResponseField name="dni" type="string" required>
+    National identification number (DNI)
+  </ResponseField>
+  
+  <ResponseField name="direccion" type="string" required>
+    Street address
+  </ResponseField>
+  
+  <ResponseField name="CP" type="string" required>
+    Postal code
+  </ResponseField>
+  
+  <ResponseField name="provincia" type="string" required>
+    Province
+  </ResponseField>
+  
+  <ResponseField name="localidad" type="string" required>
+    City/town (mapped from poblacion)
+  </ResponseField>
+  
+  <ResponseField name="pais" type="string" required>
+    Country
+  </ResponseField>
+  
+  <ResponseField name="email" type="string" required>
+    User's email address
+  </ResponseField>
+  
+  <ResponseField name="telefono" type="string" required>
+    Phone number
+  </ResponseField>
+  
+  <ResponseField name="fechadealta" type="date" required>
+    Registration date (mapped from fechaalta)
+  </ResponseField>
+  
+  <ResponseField name="fechadebaja" type="date">
+    Deactivation date (nullable, mapped from fechabaja)
+  </ResponseField>
+  
+  <ResponseField name="formadepago" type="string" required>
+    Payment method
+  </ResponseField>
+  
+  <ResponseField name="cuota" type="number" required>
+    Membership fee amount
+  </ResponseField>
+  
+  <ResponseField name="categoria" type="string" required>
+    User category (e.g., "monitor", "admin")
+  </ResponseField>
+  
+  <ResponseField name="socio" type="string" required>
+    Membership status - Either "Socio" or "NoSocio"
+  </ResponseField>
+</ResponseField>
+
+## Example Request
+
+```bash
+curl -X GET https://api.sociapp.com/users \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+## Example Response
+
+```json
+{
+  "users": [
+    {
+      "id": 1,
+      "nombre": "Ana",
+      "apellidos": "García López",
+      "dni": "12345678A",
+      "direccion": "Calle Mayor 123",
+      "CP": "28001",
+      "provincia": "Madrid",
+      "localidad": "Madrid",
+      "pais": "España",
+      "email": "ana.garcia@example.com",
+      "telefono": "600123456",
+      "fechadealta": "2024-01-15",
+      "fechadebaja": null,
+      "formadepago": "Transferencia",
+      "cuota": 25.00,
+      "categoria": "monitor",
+      "socio": "Socio"
+    },
+    {
+      "id": 2,
+      "nombre": "Carlos",
+      "apellidos": "Martínez Ruiz",
+      "dni": "87654321B",
+      "direccion": "Avenida Principal 45",
+      "CP": "08001",
+      "provincia": "Barcelona",
+      "localidad": "Barcelona",
+      "pais": "España",
+      "email": "carlos.martinez@example.com",
+      "telefono": "611234567",
+      "fechadealta": "2024-02-20",
+      "fechadebaja": null,
+      "formadepago": "Tarjeta",
+      "cuota": 30.00,
+      "categoria": "socio",
+      "socio": "Socio"
+    }
+  ]
+}
+```
+
+## Notes
+
+- Users are automatically sorted alphabetically by `nombre` (first name)
+- The `cuota` field is converted to a number, defaulting to 0 if invalid
+- Field names in the response differ from the database entity for better API consistency (e.g., `poblacion` → `localidad`, `fechaalta` → `fechadealta`)

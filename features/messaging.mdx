@@ -1,0 +1,470 @@
+---
+title: Messaging System
+description: Integrated email communication system for sending individual and bulk messages to association members
+---
+
+## Overview
+
+The Messaging System provides comprehensive email communication capabilities for associations to communicate with their members. It supports both individual member emails and bulk communications to all active members (socios), with professional HTML email templates and integrated WYSIWYG editing.
+
+The system integrates with the member management module to enable targeted communications and uses a professional email template for consistent branding across all communications.
+
+## Key Functionality
+
+<CardGroup cols={2}>
+  <Card title="Bulk Messaging" icon="users">
+    Send emails to all members with "Socio" status in a single operation
+  </Card>
+  <Card title="Individual Emails" icon="user">
+    Send targeted emails to specific members from the member list
+  </Card>
+  <Card title="HTML Editor" icon="code">
+    Format messages with bold, italic, and hyperlinks using toolbar or HTML tags
+  </Card>
+  <Card title="Professional Templates" icon="envelope">
+    Automatic application of branded email template with logo and footer
+  </Card>
+</CardGroup>
+
+## User Interface Workflow
+
+### Global Messaging Interface (Mensajeria.vue)
+
+The dedicated messaging page provides:
+
+1. **Header Section**:
+   - Title: "Mensajería Global"
+   - Icon: mail_lock
+   - Description: "Este mensaje será enviado a todos los usuarios con estado 'Socio'"
+
+2. **Email Composition Form**:
+   - **Subject Input**: Text field for email subject line
+   - **Editor Toolbar**: Quick formatting buttons for:
+     - Bold (`<b>` tag)
+     - Italic (`<i>` tag)
+     - Hyperlink (`<a href>` tag)
+   - **Message Textarea**: Large text area supporting HTML tags
+   - **Live Preview**: Real-time HTML rendering of message content
+
+3. **Send Button**:
+   - Disabled when subject or message is empty
+   - Shows loading state: "Enviando a todos..."
+   - Requires confirmation before sending
+
+### Individual Email (from Member List)
+
+From Usuarios.vue member management:
+
+1. Click mail icon next to member name
+2. MailModal opens with pre-populated recipient
+3. Compose subject and message
+4. Send email to single member
+5. Success notification confirms delivery
+
+## API Endpoints
+
+All messaging endpoints require JWT authentication with `admin` or `monitor` roles.
+
+### POST /mail/send
+
+Send email to specific recipient(s).
+
+```typescript
+@Post('send')
+@Roles('admin', 'monitor')
+async sendMail(
+  @Body('to') to: string | string[],
+  @Body('subject') subject: string,
+  @Body('message') message: string,
+)
+```
+
+**Request Body**:
+```json
+{
+  "to": "user@example.com" or ["user1@example.com", "user2@example.com"],
+  "subject": "Meeting Reminder",
+  "message": "Don't forget about tomorrow's meeting at 10 AM."
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "Correo enviado correctamente"
+}
+```
+
+**Error Response**:
+```json
+{
+  "success": false,
+  "message": "Error details"
+}
+```
+
+<Note>
+The `to` field accepts both a single email string or an array of email addresses for multi-recipient messages.
+</Note>
+
+### POST /mail/send-all
+
+Send email to all members with "Socio" status.
+
+```typescript
+@Post('send-all')
+@Roles('admin')
+async sendToAll(
+  @Body('subject') subject: string,
+  @Body('message') message: string,
+)
+```
+
+**Request Body**:
+```json
+{
+  "subject": "Monthly Newsletter",
+  "message": "<b>Dear Members,</b><br>Here's our monthly update..."
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "Correo enviado correctamente"
+}
+```
+
+**Special Cases**:
+- If no members have "Socio" status:
+  ```json
+  {
+    "success": false,
+    "message": "No hay socios con email configurado"
+  }
+  ```
+
+<Warning>
+The `/mail/send-all` endpoint requires `admin` role. Only administrators can send bulk emails to all members.
+</Warning>
+
+## Email Template
+
+All emails are automatically wrapped in a professional HTML template:
+
+```typescript
+const professionalBody = `
+<div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+    
+    <!-- Header -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9f9f9; padding:20px;">
+        <tr>
+            <td width="60" valign="middle">
+              <img src="https://i.imgur.com/3p0Wvnr.png" alt="Logo" style="height:50px; display:block;" />
+            </td>
+            <td valign="middle" style="padding-left:15px; font-family: Arial, sans-serif; font-size:24px; color:#333;">
+              SociApp
+            </td>
+        </tr>
+    </table>
+    <hr style="border:none; border-top:1px solid #ccc; margin:0;" />
+    
+    <!-- Message Body -->
+    <div style="padding: 20px; line-height: 1.6;">
+        <p><b>Estimado Socio,</b></p>
+        <p>${message.replace(/\n/g, '<br>')}</p>
+    </div>
+
+    <!-- Footer -->
+    <div style="padding: 15px 20px; font-size: 12px; color: #888; background-color: #f9f9f9; text-align: center;">
+        Este correo electrónico se ha enviado automáticamente, por favor no responda a este mensaje.<br/>
+        &copy; ${new Date().getFullYear()} SociApp. Todos los derechos reservados.
+    </div>
+</div>
+`;
+```
+
+### Template Features
+
+1. **Header**:
+   - SociApp logo (50px height)
+   - Brand name with consistent styling
+   - Light gray background (#f9f9f9)
+
+2. **Body**:
+   - Greeting: "Estimado Socio,"
+   - User message with line break conversion (`\n` → `<br>`)
+   - Responsive padding and line height
+
+3. **Footer**:
+   - Auto-reply disclaimer
+   - Copyright notice with current year
+   - Centered text with muted colors
+
+<Tip>
+Newline characters (`\n`) in the message are automatically converted to HTML `<br>` tags for proper formatting in email clients.
+</Tip>
+
+## Backend Service Implementation
+
+The MailService (mail.service.ts) handles email operations:
+
+```typescript
+@Injectable()
+export class MailService {
+  constructor(
+    private readonly mailerService: MailerService,
+    @InjectRepository(Usuarios)
+    private readonly userRepository: Repository<Usuarios>,
+  ) { }
+
+  async sendMail(to: string | string[], subject: string, message: string) {
+    try {
+      const professionalBody = /* template code */;
+      
+      await this.mailerService.sendMail({
+        to,
+        subject,
+        html: professionalBody,
+      });
+
+      return { success: true, message: 'Correo enviado correctamente' };
+    } catch (error) {
+      console.error('Error sending mail:', error);
+      throw error;
+    }
+  }
+
+  async sendToAllSocios(subject: string, message: string) {
+    const socios = await this.userRepository.find({ 
+      where: { socio: 'Socio' } 
+    });
+    const emails = socios.map(s => s.email).filter(e => e);
+
+    if (emails.length === 0) {
+      return { 
+        success: false, 
+        message: 'No hay socios con email configurado' 
+      };
+    }
+
+    return this.sendMail(emails, subject, message);
+  }
+}
+```
+
+### Key Implementation Details
+
+1. **Dependency Injection**:
+   - MailerService from `@nestjs-modules/mailer`
+   - Usuarios repository for member queries
+
+2. **Error Handling**:
+   - Try-catch blocks around email operations
+   - Detailed error logging to console
+   - Errors propagated to controller for HTTP response
+
+3. **Email Filtering**:
+   - Query only members with `socio: 'Socio'`
+   - Filter out null/empty email addresses
+   - Return error if no valid recipients found
+
+## Frontend Implementation
+
+### Toolbar Formatting
+
+The editor toolbar applies HTML tags to selected text:
+
+```javascript
+const applyStyle = (tag) => {
+  const textarea = textareaRef.value
+  const start = textarea.selectionStart
+  const end = textarea.selectionEnd
+  const text = message.value
+  
+  if (tag === 'link') {
+    const url = prompt('Introduce la URL:')
+    if (url) {
+      const selected = text.substring(start, end)
+      message.value = text.substring(0, start) + 
+                     `<a href="${url}">${selected || url}</a>` + 
+                     text.substring(end)
+    }
+    return
+  }
+
+  const openTag = `<${tag}>`
+  const closeTag = `</${tag}>`
+  const selected = text.substring(start, end)
+  
+  message.value = text.substring(0, start) + 
+                 openTag + selected + closeTag + 
+                 text.substring(end)
+}
+```
+
+**Supported Tags**:
+- `<b>` - Bold text
+- `<i>` - Italic text  
+- `<a href="...">` - Hyperlinks (prompts for URL)
+
+### Sending Global Email
+
+```javascript
+const sendGlobalMail = async () => {
+  if (!subject.value || !message.value) return
+  
+  if (!confirm('¿Estás seguro de que deseas enviar este correo a TODOS los socios registrados?')) 
+    return
+
+  isSending.value = true
+  try {
+    await userStore.sendEmail({
+      subject: subject.value,
+      message: message.value,
+      recipients: []  // Empty array triggers "send to all socios"
+    })
+    notificationStore.success('Correo enviado con éxito a todos los socios.')
+    subject.value = ''
+    message.value = ''
+  } catch (error) {
+    console.error('Error sending global mail:', error)
+    notificationStore.error('Error al enviar el correo masivo.')
+  } finally {
+    isSending.value = false
+  }
+}
+```
+
+**Safety Features**:
+1. Validation: Subject and message required
+2. Confirmation dialog before sending
+3. Loading state prevents duplicate sends
+4. Success/error notifications
+5. Form reset after successful send
+
+### Live Preview
+
+```vue
+<div class="preview-section" v-if="message">
+  <label>Vista previa rápida</label>
+  <div class="preview-content" v-html="message"></div>
+</div>
+```
+
+The preview renders the HTML message in real-time, allowing administrators to see formatting before sending.
+
+## Use Cases
+
+### Monthly Newsletter
+
+1. Navigate to Mensajería page
+2. Enter subject: "Newsletter - March 2026"
+3. Compose message with toolbar formatting:
+   - Bold headings for sections
+   - Italic for emphasis
+   - Links to external resources
+4. Review in live preview
+5. Click "Enviar a todos los Socios"
+6. Confirm in dialog
+7. System sends to all members with socio: 'Socio'
+8. Success notification confirms delivery
+
+### Event Announcement
+
+1. Write subject: "Urgent: Assembly Meeting Tomorrow"
+2. Compose message:
+   ```html
+   <b>Important Reminder</b><br><br>
+   Don't forget about our general assembly meeting tomorrow at 10:00 AM.
+   <br><br>
+   Location: Main Hall<br>
+   <a href="https://example.com/agenda">View Full Agenda</a>
+   ```
+3. Preview formatting
+4. Send to all socios
+5. All active members receive professional email
+
+### Individual Follow-up
+
+1. From Usuarios page, search for specific member
+2. Click mail icon next to their name
+3. MailModal opens with recipient pre-filled
+4. Compose personalized message
+5. Send email to individual member
+6. Track communication in member history
+
+### Emergency Communication
+
+1. Use bulk email for urgent announcements
+2. Clear subject line indicating urgency
+3. Brief, formatted message
+4. Link to more information if needed
+5. Rapid delivery to all active members
+
+## Email Deliverability
+
+The system uses NestJS Mailer module with configurable SMTP settings:
+
+**Configuration** (typically in `app.module.ts`):
+```typescript
+MailerModule.forRoot({
+  transport: {
+    host: process.env.MAIL_HOST,
+    port: process.env.MAIL_PORT,
+    auth: {
+      user: process.env.MAIL_USER,
+      pass: process.env.MAIL_PASSWORD,
+    },
+  },
+  defaults: {
+    from: '"SociApp" <noreply@sociapp.com>',
+  },
+})
+```
+
+<Note>
+Email configuration requires environment variables for SMTP credentials. Ensure proper mail server setup for reliable delivery.
+</Note>
+
+## Integration with Other Features
+
+- **Member Management**: 
+  - Recipient selection from Usuarios table
+  - Filtering by socio status for bulk emails
+  - Individual email buttons on member cards
+
+- **Verification System**:
+  - Separate verification email template (not shown in UI)
+  - 6-digit code delivery
+  - 15-minute expiration
+
+## Security Considerations
+
+1. **Role-Based Access**:
+   - Individual emails: `admin` or `monitor` roles
+   - Bulk emails: `admin` role only
+   - JWT authentication required
+
+2. **Confirmation Dialogs**:
+   - Bulk sends require explicit confirmation
+   - Prevents accidental mass emails
+
+3. **No-Reply Header**:
+   - Footer explicitly states "do not respond"
+   - Prevents inbox flooding from member replies
+
+4. **Email Validation**:
+   - Filters out members without email addresses
+   - Returns error if no valid recipients
+
+<Warning>
+Bulk email functionality should be used judiciously. Consider email frequency and relevance to avoid member dissatisfaction or spam complaints.
+</Warning>
+
+## Related Documentation
+
+- [Member Management](/features/member-management) - Understanding member email data and socio status
+- [Configuration](/features/configuration) - Association email settings and SMTP configuration

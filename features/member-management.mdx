@@ -1,0 +1,305 @@
+---
+title: Member Management
+description: Comprehensive member and user management system for tracking association members, their information, and membership status
+---
+
+## Overview
+
+The Member Management feature provides a complete solution for managing association members (socios) and general users. It handles member registration, profile management, membership status tracking, and communication with members through an integrated email system.
+
+This module is central to SociApp's association management capabilities, allowing administrators and monitors to maintain accurate member records, track membership fees, and manage member lifecycle from registration to deactivation.
+
+## Key Functionality
+
+<CardGroup cols={2}>
+  <Card title="Member Registration" icon="user-plus">
+    Register new members with complete personal and contact information, including verification workflow
+  </Card>
+  <Card title="Profile Management" icon="id-card">
+    Update member details, membership status, payment information, and membership categories
+  </Card>
+  <Card title="Advanced Search" icon="magnifying-glass">
+    Smart search functionality with weighted scoring across multiple fields (name, DNI, email, category)
+  </Card>
+  <Card title="Email Communication" icon="envelope">
+    Send individual or bulk emails to members directly from the member list
+  </Card>
+</CardGroup>
+
+## User Interface Workflow
+
+The member management interface (Usuarios.vue) provides a streamlined workflow for managing association members:
+
+### Main Member List View
+
+1. **Search and Filter**: Real-time search with intelligent scoring algorithm that prioritizes:
+   - Exact matches (score: 100)
+   - Prefix matches (score: 50)
+   - Partial matches in name, apellidos, DNI, email, and socio status
+
+2. **Pagination**: Display 10 members per page with navigation controls showing current range (e.g., "1 - 10 de 45")
+
+3. **Member Cards**: Expandable list items showing:
+   - **Summary**: Member name (nombre + apellidos) and category badge
+   - **Details**: Full member information including contact details, address, membership dates, and payment information
+
+### Member Actions
+
+<Note>
+All member management actions require authentication with `monitor` or `admin` role.
+</Note>
+
+**Add New Member**
+- Click "Agregar Usuario" button
+- Fill in member information form (userSchema)
+- System validates required fields and sends verification email
+- Member account created with `isVerified: false` status
+
+**Edit Member**
+- Click edit button on member card
+- Modify member details using userEditSchema
+- System updates member record and confirms success
+
+**Delete Member**
+- Click delete button
+- Confirm deletion in modal dialog
+- System removes member by DNI identifier
+
+**Send Email**
+- Click mail icon on individual member card for single recipient
+- Compose subject and message in MailModal
+- Email sent through integrated mail service
+
+## Data Model
+
+The member data is stored in the `Usuarios` entity with the following structure:
+
+```typescript
+@Entity('usuarios')
+export class Usuarios {
+  @PrimaryGeneratedColumn()
+  IdUsuario: number;
+
+  @Column()
+  nombre: string;
+
+  @Column()
+  apellidos: string;
+
+  @Column()
+  password: string;
+
+  @Column()
+  dni: string;
+
+  @Column()
+  direccion: string;
+
+  @Column({ name: 'CP' })
+  CP: string;
+
+  @Column()
+  provincia: string;
+
+  @Column()
+  poblacion: string;
+
+  @Column()
+  pais: string;
+
+  @Column()
+  email: string;
+
+  @Column()
+  telefono: string;
+
+  @Column({ type: 'date' })
+  fechaalta: Date;
+
+  @Column({ type: 'date', nullable: true })
+  fechabaja: Date;
+
+  @Column()
+  formadepago: string;
+
+  @Column({ type: 'decimal' })
+  cuota: number;
+
+  @Column()
+  categoria: string;
+
+  @Column({
+    type: 'enum',
+    enum: ['Socio', 'NoSocio'],
+    default: 'NoSocio'
+  })
+  socio: 'Socio' | 'NoSocio';
+
+  @Column({ default: false })
+  isVerified: boolean;
+
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  verificationCode: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  verificationExpires: Date | null;
+}
+```
+
+### Key Fields
+
+- **IdUsuario**: Primary key, auto-generated
+- **dni**: National identification number, used as unique identifier for operations
+- **socio**: Enum field distinguishing between active members ('Socio') and non-members ('NoSocio')
+- **isVerified**: Boolean flag for email verification status
+- **verificationCode**: Temporary code for email verification (expires in 15 minutes)
+- **fechaalta/fechabaja**: Membership activation and deactivation dates
+- **formadepago**: Payment method for membership fees
+- **cuota**: Membership fee amount (decimal)
+- **categoria**: Member category or role within the association
+
+## API Endpoints
+
+All endpoints are protected by JWT authentication and require `monitor` or `admin` roles.
+
+### GET /users
+
+Retrieve all members from the database.
+
+```typescript
+@Get()
+@Roles('monitor', 'admin')
+getUsersData()
+```
+
+**Response**: Array of Usuarios objects
+
+### POST /users
+
+Create a new member account.
+
+```typescript
+@Post()
+@Roles('monitor', 'admin')
+create(@Body() dto: CreateUserDto)
+```
+
+**Request Body**: CreateUserDto with required member fields
+
+**Response**: Created Usuarios object
+
+### POST /users/edit
+
+Update existing member information.
+
+```typescript
+@Post('edit')
+@Roles('monitor', 'admin')
+edit(@Body() dto: EditUserDto)
+```
+
+**Request Body**: EditUserDto with updated member fields
+
+**Response**: Updated Usuarios object
+
+### POST /users/delete
+
+Remove a member from the system.
+
+```typescript
+@Post('delete')
+@Roles('monitor', 'admin')
+delete(@Body() dto: RemoveUserDto)
+```
+
+**Request Body**: RemoveUserDto containing DNI identifier
+
+**Response**: Deletion confirmation
+
+<Warning>
+Deleting a member is a permanent action and cannot be undone. Consider using the `fechabaja` field to mark members as inactive instead.
+</Warning>
+
+## Search Algorithm
+
+The member search uses a weighted scoring system implemented in Usuarios.vue:
+
+```javascript
+const filteredUsers = computed(() => {
+  const query = searchQuery.value.toLowerCase().trim()
+  if (!query) return users.value
+
+  const results = users.value.map(user => {
+    let score = 0
+    const fields = {
+      nombre: user.nombre?.toString().toLowerCase() || '',
+      apellidos: user.apellidos?.toString().toLowerCase() || '',
+      dni: user.dni?.toString().toLowerCase() || '',
+      email: user.email?.toString().toLowerCase() || '',
+      categoria: user.categoria?.toString().toLowerCase() || '',
+      socio: user.socio?.toString().toLowerCase() || ''
+    }
+
+    // Exact match: 100 points
+    if (fields.nombre === query) score += 100
+    // Starts with query: 50 points
+    else if (fields.nombre.startsWith(query)) score += 50
+    // Contains query: 10 points
+    else if (fields.nombre.includes(query)) score += 10
+
+    // Similar scoring for other fields with decreasing priority
+    // apellidos: 90/45/9, dni: 80/40/8, email: 70/35/5
+    
+    return { user, score }
+  }).filter(item => item.score > 0)
+
+  return results.sort((a, b) => b.score - a.score).map(item => item.user)
+})
+```
+
+<Tip>
+The search automatically expands member details when only 1-2 results are found, improving user experience during targeted searches.
+</Tip>
+
+## Use Cases
+
+### Member Onboarding
+
+1. Administrator creates new member account
+2. System sends verification email with 6-digit code
+3. Member verifies email within 15 minutes
+4. Account becomes active with `isVerified: true`
+5. Member can access member-only features
+
+### Membership Renewal
+
+1. Administrator searches for member by name or DNI
+2. Opens member details to view current status
+3. Updates `cuota` field with new fee amount
+4. Updates `formadepago` if payment method changed
+5. System saves changes and confirms update
+
+### Member Communication
+
+1. Search for specific members or view all
+2. Click mail icon on individual member cards
+3. System pre-populates recipient email
+4. Compose message in MailModal
+5. Email sent through `/mail/send` endpoint with professional template
+
+### Bulk Operations
+
+For bulk email communication to all members, see the [Messaging](/features/messaging) feature documentation.
+
+## Integration with Other Features
+
+- **Activities**: Members can be assigned as monitors (idMonitor field) for activities
+- **Projects**: Members can be designated as project responsables
+- **Messaging**: Member email addresses used for bulk communications
+- **Configuration**: Members can be assigned to Junta Directiva (board of directors)
+
+## Related API Endpoints
+
+For email communication, see:
+- [POST /mail/send](/features/messaging#send-individual-email)
+- [POST /mail/send-all](/features/messaging#send-bulk-email)

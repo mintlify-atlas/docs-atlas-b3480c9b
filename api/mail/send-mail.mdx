@@ -1,0 +1,154 @@
+---
+title: "Send Mail"
+description: "Send emails to specific recipients"
+---
+
+## Send Email to Specific Recipients
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.sociapp.com/mail/send \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "user@example.com",
+    "subject": "Important Update",
+    "message": "<h1>Hello</h1><p>This is an important update for you.</p>"
+  }'
+```
+
+```bash Multiple Recipients
+curl -X POST https://api.sociapp.com/mail/send \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": ["user1@example.com", "user2@example.com", "user3@example.com"],
+    "subject": "Team Announcement",
+    "message": "<h1>Team Update</h1><p>Important information for the team.</p>"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/mail/send', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    to: 'user@example.com',
+    subject: 'Important Update',
+    message: '<h1>Hello</h1><p>This is an important update for you.</p>'
+  })
+});
+const result = await response.json();
+```
+
+```javascript Multiple Recipients
+const response = await fetch('https://api.sociapp.com/mail/send', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    to: ['user1@example.com', 'user2@example.com', 'user3@example.com'],
+    subject: 'Team Announcement',
+    message: '<h1>Team Update</h1><p>Important information for the team.</p>'
+  })
+});
+const result = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK - Single Recipient
+{
+  "success": true,
+  "message": "Email sent successfully",
+  "recipients": 1
+}
+```
+
+```json 200 OK - Multiple Recipients
+{
+  "success": true,
+  "message": "Email sent successfully",
+  "recipients": 3
+}
+```
+
+```json 400 Bad Request
+{
+  "statusCode": 400,
+  "message": "Invalid email address",
+  "error": "Bad Request"
+}
+```
+
+```json 403 Forbidden
+{
+  "statusCode": 403,
+  "message": "Insufficient permissions",
+  "error": "Forbidden"
+}
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+POST /mail/send
+```
+
+### Authentication
+
+Requires JWT authentication token with `admin` or `monitor` role.
+
+**Required Roles:** `admin`, `monitor`
+
+### Request Body
+
+<ParamField body="to" type="string | string[]" required>
+  Email recipient(s). Can be a single email address string or an array of email addresses.
+  
+  **Examples:**
+  - Single: `"user@example.com"`
+  - Multiple: `["user1@example.com", "user2@example.com"]`
+</ParamField>
+
+<ParamField body="subject" type="string" required>
+  Email subject line
+</ParamField>
+
+<ParamField body="message" type="string" required>
+  Email message body. Supports HTML formatting.
+  
+  **Example:**
+  ```html
+  <h1>Welcome</h1>
+  <p>This is the email content with <strong>HTML</strong> support.</p>
+  ```
+</ParamField>
+
+### Response Fields
+
+<ResponseField name="success" type="boolean">
+  Indicates whether the email was sent successfully
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Status message describing the result
+</ResponseField>
+
+<ResponseField name="recipients" type="number">
+  Number of recipients the email was sent to
+</ResponseField>
+
+### Notes
+
+- The endpoint accepts both single email addresses and arrays of email addresses
+- HTML formatting is supported in the message body
+- Only users with `admin` or `monitor` roles can send emails
+- Email addresses are validated before sending
+- The mail service uses the configured SMTP settings from the application

@@ -1,80 +1,170 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get SociApp running in minutes with Docker
 ---
 
-## Get started in three steps
+# Quickstart Guide
 
-Get your documentation site running locally and make your first customization.
+Get SociApp up and running quickly using Docker. This guide will have you managing your neighborhood association in under 5 minutes.
 
-### Step 1: Set up your local environment
+## Prerequisites
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+Before you begin, ensure you have:
 
-### Step 2: Deploy your changes
+- **Docker** and **Docker Compose** installed on your system
+- At least 2GB of available RAM
+- Ports 80, 3000, and 3001 available
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+## Quick Start with Docker
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+<Steps>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+### Clone the Repository
 
-### Step 3: Go live
+First, get the SociApp source code:
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+```bash
+git clone <your-repository-url>
+cd sociapp
+```
 
-## Next steps
+### Configure Environment Variables
 
-Now that you have your docs running, explore these key features:
+Create a `.env` file in the `backend` directory with your configuration:
 
-<CardGroup cols={2}>
+```bash
+cd backend
+cat > .env << EOF
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=3306
+DB_USERNAME=your_db_user
+DB_PASSWORD=your_db_password
+DB_DATABASE=sociapp
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+# Application Settings
+PORT=3000
+FRONTEND_URL=http://localhost:5173
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+# JWT Configuration
+JWT_SECRET=your-secure-jwt-secret-key
+JWT_EXPIRES_IN=24h
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+# Email Configuration (optional)
+MAIL_HOST=smtp.example.com
+MAIL_PORT=587
+MAIL_USER=your-email@example.com
+MAIL_PASSWORD=your-email-password
+EOF
+```
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+Make sure to replace the placeholder values with your actual configuration, especially `JWT_SECRET` which should be a strong random string.
 </Note>
+
+### Build and Start the Containers
+
+Use the provided Docker Compose setup to build and start all services:
+
+```bash
+cd ..
+docker-compose up -d --build
+```
+
+This command will:
+- Build the NestJS backend container
+- Build the Vue.js frontend container with Nginx
+- Start both services in detached mode
+
+<Tip>
+The initial build may take a few minutes. Subsequent starts will be much faster.
+</Tip>
+
+### Verify the Installation
+
+Check that all containers are running:
+
+```bash
+docker ps
+```
+
+You should see two containers:
+- `nest-backend` - Running on ports 3000 and 3001
+- `vue-frontend` - Running on port 80
+
+### Access SociApp
+
+Open your browser and navigate to:
+
+```
+http://localhost
+```
+
+You should see the SociApp login page. The backend API is accessible at `http://localhost:3000`.
+
+</Steps>
+
+## Using the Control Script
+
+SociApp includes a convenient control script for managing Docker containers:
+
+```bash
+./docker.sh
+```
+
+This interactive script allows you to:
+
+- **Build & Start**: Rebuild and start containers
+- **Restart**: Restart running containers
+- **Stop**: Stop containers
+- **Logs**: View container logs in real-time
+
+Select a container (frontend, backend, or both) and choose an action from the menu.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation Guide" icon="download" href="/installation">
+    Detailed installation instructions including manual setup
+  </Card>
+  <Card title="Configuration" icon="gear" href="/features/configuration">
+    Configure database, email, and authentication settings
+  </Card>
+  <Card title="User Management" icon="users" href="/features/member-management">
+    Learn how to manage members and permissions
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/auth/register">
+    Explore the backend API endpoints
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+### Containers Won't Start
+
+Check if ports are already in use:
+
+```bash
+lsof -i :80
+lsof -i :3000
+```
+
+### Database Connection Errors
+
+Ensure your database is running and credentials in `.env` are correct:
+
+```bash
+docker logs nest-backend
+```
+
+### Frontend Can't Connect to Backend
+
+Verify the `VITE_API_URL` build argument in `docker-compose.yml` matches your backend URL.
+
+<Warning>
+If you modify the `docker-compose.yml` or Dockerfiles, you must rebuild the containers with `docker-compose up -d --build`.
+</Warning>
+
+## Getting Help
+
+If you encounter issues not covered here, check the [Installation](/installation) guide for more detailed setup instructions.

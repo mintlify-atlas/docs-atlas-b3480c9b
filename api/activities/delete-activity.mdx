@@ -1,0 +1,85 @@
+---
+title: 'Delete Activity'
+api: 'DELETE /activities/{id}'
+---
+
+Deletes an activity by its ID.
+
+## Authentication
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication
+</ParamField>
+
+**Required Roles:** `monitor`, `admin`
+
+## Path Parameters
+
+<ParamField path="id" type="number" required>
+  The unique identifier of the activity to delete
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Indicates whether the deletion was successful
+</ResponseField>
+
+## Example Request
+
+```bash
+curl -X DELETE https://api.sociapp.com/activities/10 \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+## Example Response
+
+```json
+{
+  "success": true
+}
+```
+
+## Error Responses
+
+### 401 Unauthorized
+
+```json
+{
+  "statusCode": 401,
+  "message": "Unauthorized"
+}
+```
+
+### 403 Forbidden
+
+```json
+{
+  "statusCode": 403,
+  "message": "Forbidden resource"
+}
+```
+
+### 404 Not Found
+
+```json
+{
+  "statusCode": 404,
+  "message": "No se encontró la actividad con id 10"
+}
+```
+
+### 500 Internal Server Error
+
+```json
+{
+  "statusCode": 500,
+  "message": "Failed to delete activity"
+}
+```
+
+## Important Notes
+
+- Deleting an activity does not automatically remove it from associated projects
+- Ensure that dependent records are handled appropriately before deletion
+- This operation cannot be undone

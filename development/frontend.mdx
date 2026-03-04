@@ -1,0 +1,797 @@
+---
+title: Frontend Development
+description: Complete guide to SociApp's Vue.js 3 frontend architecture, components, and development patterns
+---
+
+## Overview
+
+The frontend is built with Vue.js 3 using the Composition API, providing a modern, reactive user interface for managing social organization activities, members, and projects.
+
+## Technology Stack
+
+### Core Framework
+
+```json
+{
+  "vue": "^3.5.27",
+  "pinia": "^3.0.4",
+  "vue-router": "^5.0.2",
+  "axios": "^1.13.5"
+}
+```
+
+### UI & Styling
+
+```json
+{
+  "tailwindcss": "^4.1.18",
+  "chart.js": "^4.5.1",
+  "vue-chartjs": "^5.3.3",
+  "pdfjs-dist": "^5.4.624"
+}
+```
+
+### Build Tools
+
+```json
+{
+  "vite": "^7.3.1",
+  "@vitejs/plugin-vue": "^6.0.3",
+  "@vitejs/plugin-vue-jsx": "^5.1.3",
+  "vue-tsc": "^3.2.4",
+  "typescript": "~5.9.3"
+}
+```
+
+## Application Entry Point
+
+The application initializes in `src/main.ts`:
+
+```typescript
+import './assets/main.css'
+
+import { createApp } from 'vue'
+import App from './App.vue'
+import router from './router'
+import { createPinia } from 'pinia'
+
+const app = createApp(App)
+
+const pinia = createPinia()
+app.use(pinia)
+app.use(router)
+app.mount('#app')
+```
+
+### Key Setup Steps
+
+1. Import global styles
+2. Create Vue application instance
+3. Initialize Pinia for state management
+4. Configure Vue Router
+5. Mount application to DOM
+
+## Vue Router Configuration
+
+Located in `src/router/index.ts`, the router handles all navigation and route protection.
+
+### Route Definitions
+
+```typescript
+import { createRouter, createWebHistory } from 'vue-router'
+import HomeView from '../views/HomeView.vue'
+import Landing from '../views/Landing.vue'
+import { useAuthStore } from '../stores/auth'
+
+const router = createRouter({
+  history: createWebHistory(import.meta.env.BASE_URL),
+  routes: [
+    {
+      path: '/',
+      name: 'landing',
+      component: Landing,
+    },
+    {
+      path: '/dashboard',
+      name: 'home',
+      component: HomeView,
+    },
+    {
+      path: '/configuracion',
+      name: 'configuracion',
+      component: () => import('../views/Configuracion.vue'),
+    },
+    {
+      path: '/actividades',
+      name: 'actividades',
+      component: () => import('../views/Actividades.vue'),
+    },
+    {
+      path: '/usuarios',
+      name: 'usuarios',
+      component: () => import('../views/Usuarios.vue'),
+    },
+    {
+      path: '/proyectos',
+      name: 'proyectos',
+      component: () => import('../views/Proyectos.vue'),
+    },
+    {
+      path: '/mensajeria',
+      name: 'mensajeria',
+      component: () => import('../views/Mensajeria.vue'),
+    },
+  ],
+})
+```
+
+### Navigation Guard
+
+The router implements authentication and authorization checks:
+
+```typescript
+router.beforeEach(async (to, from, next) => {
+  const auth = useAuthStore()
+
+  // Initialize auth store once
+  if (!auth.isInitialized) {
+    await auth.init()
+  }
+
+  // Public routes
+  if (to.name === 'landing') {
+    if (auth.isAuthenticated && auth.isAdmin) {
+      // Redirect authenticated admins to dashboard
+      return next({ name: 'home' })
+    }
+    return next()
+  }
+
+  // Protected routes - require authentication
+  if (!auth.isAuthenticated) {
+    return next({ name: 'landing' })
+  }
+
+  // Admin-only routes
+  if (auth.isAuthenticated && !auth.isAdmin) {
+    // Non-admin users stay on landing
+    return next({ name: 'landing' })
+  }
+
+  return next()
+})
+```
+
+### Route Protection Logic
+
+1. **Landing Page** (`/`):
+   - Public access allowed
+   - Authenticated admins redirected to dashboard
+
+2. **Protected Routes** (all others):
+   - Require authentication
+   - Require admin role (`monitor`, `admin`, or `administrador`)
+   - Non-authenticated users redirected to landing
+   - Non-admin users restricted to landing
+
+## Pinia State Management
+
+SociApp uses Pinia stores for centralized state management. Each store handles a specific domain.
+
+### Authentication Store
+
+Location: `src/stores/auth.js`
+
+```javascript
+import { defineStore } from 'pinia'
+import { api } from '../api'
+
+export const useAuthStore = defineStore('auth', {
+  state: () => ({
+    user: null,
+    accessToken: localStorage.getItem('access_token') || null,
+    isInitialized: false,
+  }),
+
+  getters: {
+    isAuthenticated: state => !!state.accessToken && !!state.user,
+    isAdmin: state => {
+      const categoria = state.user?.categoria?.toLowerCase()
+      return categoria === 'monitor' || 
+             categoria === 'admin' || 
+             categoria === 'administrador'
+    },
+  },
+
+  actions: {
+    setAccessToken(token) {
+      this.accessToken = token
+      if (token) {
+        localStorage.setItem('access_token', token)
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+      } else {
+        localStorage.removeItem('access_token')
+        delete api.defaults.headers.common['Authorization']
+      }
+    },
+
+    async init() {
+      if (this.accessToken) {
+        api.defaults.headers.common['Authorization'] = `Bearer ${this.accessToken}`
+        try {
+          await this.fetchCurrentUser()
+        } catch (error) {
+          this.user = null
+          this.setAccessToken(null)
+        }
+      }
+      if (!this.isInitialized) {
+        this.isInitialized = true
+      }
+    },
+
+    async fetchCurrentUser() {
+      const res = await api.get('/auth/me')
+      this.user = res.data
+      return this.user
+    },
+
+    async login(payload) {
+      const res = await api.post('/auth/login', payload)
+      if (res.data?.access_token) {
+        this.setAccessToken(res.data.access_token)
+        await this.fetchCurrentUser()
+      }
+      return res.data
+    },
+
+    async verifyEmail(email, code) {
+      const res = await api.post('/auth/verify-email', { email, code })
+      if (res.data?.access_token) {
+        this.setAccessToken(res.data.access_token)
+        await this.fetchCurrentUser()
+      }
+      return res.data
+    },
+
+    async logout() {
+      try {
+        await api.post('/auth/logout')
+      } catch {
+        // Ignore logout errors
+      }
+      this.user = null
+      this.setAccessToken(null)
+      window.location.href = '/'
+    },
+  },
+})
+```
+
+### Store Architecture Pattern
+
+All stores follow this pattern:
+
+```javascript
+import { defineStore } from 'pinia'
+import { api } from '../api'
+
+export const useXxxStore = defineStore('xxx', {
+  state: () => ({
+    items: [],
+    loading: false,
+    error: null,
+  }),
+
+  getters: {
+    // Computed properties derived from state
+  },
+
+  actions: {
+    async fetchItems() {
+      this.loading = true
+      try {
+        const res = await api.get('/xxx')
+        this.items = res.data
+      } catch (error) {
+        this.error = error.message
+      } finally {
+        this.loading = false
+      }
+    },
+  },
+})
+```
+
+### Available Stores
+
+- **auth.js**: Authentication & user session
+- **users.js**: User management
+- **projects.js**: Project management
+- **activities.js**: Activity management
+- **configuracion.js**: Application configuration
+- **notification.js**: Toast notifications
+
+## Component Structure
+
+SociApp uses the Composition API for all components.
+
+### Root Component (App.vue)
+
+```vue
+<script setup lang="ts">
+import { ref, onMounted, computed } from 'vue'
+import { RouterView, useRoute } from 'vue-router'
+import Menu from './components/Menu.vue'
+import LoginModal from './components/LoginModal.vue'
+import RegisterModal from './components/RegisterModal.vue'
+import NotificationHost from './components/NotificationHost.vue'
+import { useAuthStore } from './stores/auth'
+
+const route = useRoute()
+const isMenuExpanded = ref(false)
+const auth = useAuthStore()
+
+const showLogin = ref(false)
+const showRegister = ref(false)
+
+const handleToggleMenu = (expanded: boolean) => {
+  isMenuExpanded.value = expanded
+}
+
+const openLogin = () => {
+  showRegister.value = false
+  showLogin.value = true
+}
+
+const openRegister = () => {
+  showLogin.value = false
+  showRegister.value = true
+}
+
+onMounted(() => {
+  auth.init()
+})
+
+const mainContentClass = computed(() => {
+  if (auth.isAuthenticated && auth.isAdmin) {
+    return isMenuExpanded.value ? 'expanded' : 'collapsed'
+  }
+  return 'full-width'
+})
+
+const isNotHome = computed(() => {
+  return route.path !== '/' && route.path !== '/dashboard'
+})
+</script>
+
+<template>
+  <Menu 
+    @toggle-menu="handleToggleMenu" 
+    @open-login="openLogin"
+    @open-register="openRegister"
+  />
+  
+  <div class="main-content" :class="mainContentClass">
+    <RouterView />
+  </div>
+
+  <Transition name="fade">
+    <LoginModal 
+      v-if="showLogin" 
+      @close="showLogin = false" 
+      @switch-to-register="openRegister" 
+    />
+  </Transition>
+
+  <Transition name="fade">
+    <RegisterModal 
+      v-if="showRegister" 
+      @close="showRegister = false" 
+      @switch-to-login="openLogin" 
+    />
+  </Transition>
+
+  <RouterLink v-if="isNotHome" to="/dashboard" class="floating-home-btn">
+    <span class="material-symbols-outlined">home</span>
+  </RouterLink>
+
+  <NotificationHost />
+</template>
+```
+
+### Component Categories
+
+#### Modal Components
+- **LoginModal.vue**: User authentication
+- **RegisterModal.vue**: New user registration
+- **VerificationModal.vue**: Email verification
+- **ModalForm.vue**: Generic form modal
+- **ModalEdit.vue**: Edit entity modal
+- **ModalDelete.vue**: Delete confirmation modal
+- **MailModal.vue**: Email composition
+- **ActivityModal.vue**: Activity details
+
+#### UI Components
+- **Menu.vue**: Navigation sidebar
+- **Title.vue**: Page titles
+- **PrimaryButton.vue**: Action buttons
+- **ToggleSwitch.vue**: Toggle inputs
+- **SearchInput.vue**: Search fields
+- **StatisticsCard.vue**: Metric cards
+- **Chart.vue**: Data visualizations
+- **DataDisplay.vue**: Table/list views
+- **ExpandableListItem.vue**: Collapsible items
+- **ActionButtons.vue**: CRUD action buttons
+
+#### Utility Components
+- **NotificationHost.vue**: Toast notification system
+- **PdfPreview.vue**: PDF document viewer
+
+### Composition API Patterns
+
+#### Reactive State
+
+```typescript
+import { ref, reactive, computed } from 'vue'
+
+// Primitive values
+const count = ref(0)
+const name = ref('')
+
+// Complex objects
+const state = reactive({
+  user: null,
+  loading: false,
+  items: [],
+})
+
+// Computed properties
+const doubleCount = computed(() => count.value * 2)
+const hasItems = computed(() => state.items.length > 0)
+```
+
+#### Lifecycle Hooks
+
+```typescript
+import { onMounted, onUnmounted, onUpdated } from 'vue'
+
+onMounted(() => {
+  // Component mounted
+  fetchData()
+})
+
+onUnmounted(() => {
+  // Cleanup
+  clearInterval(timer)
+})
+
+onUpdated(() => {
+  // After DOM updates
+})
+```
+
+#### Store Integration
+
+```typescript
+import { useAuthStore } from '@/stores/auth'
+import { useUsersStore } from '@/stores/users'
+
+const auth = useAuthStore()
+const users = useUsersStore()
+
+// Access state
+console.log(auth.user)
+console.log(users.items)
+
+// Call actions
+auth.login({ email, password })
+users.fetchUsers()
+```
+
+## Styling Approach
+
+### Tailwind CSS Configuration
+
+SociApp uses Tailwind CSS 4.1.18 for utility-first styling.
+
+### Global Styles
+
+Located in `src/assets/`:
+
+- **main.css**: Base styles and CSS variables
+- **modals.css**: Modal component styles
+- **configuracion.css**: Configuration page styles
+
+### CSS Variables
+
+```css
+:root {
+  --button-primary: #20a8d8;
+  --button-primary-hover: #1b8fb8;
+  --background-color: #f9f9f9;
+  --text-color: #333;
+  --border-color: #ddd;
+}
+```
+
+### Scoped Styles in Components
+
+```vue
+<style scoped>
+.main-content {
+  margin-top: 60px;
+  transition: margin-left 0.3s ease;
+  min-height: calc(100vh - 60px);
+}
+
+.main-content.collapsed {
+  margin-left: 90px;
+}
+
+.main-content.expanded {
+  margin-left: 270px;
+}
+
+@media (max-width: 768px) {
+  .main-content.collapsed,
+  .main-content.expanded {
+    margin-left: 0;
+  }
+}
+</style>
+```
+
+### Responsive Design
+
+The application is fully responsive with mobile-first breakpoints:
+
+```css
+/* Mobile: default */
+/* Tablet: 768px */
+@media (max-width: 768px) { ... }
+
+/* Desktop: 1024px+ */
+@media (min-width: 1024px) { ... }
+```
+
+## HTTP Client Configuration
+
+Axios is configured with interceptors and default settings.
+
+### API Setup (src/api.js)
+
+```javascript
+import axios from 'axios'
+
+export const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
+// Request interceptor
+api.interceptors.request.use(
+  config => {
+    const token = localStorage.getItem('access_token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    return config
+  },
+  error => Promise.reject(error)
+)
+
+// Response interceptor
+api.interceptors.response.use(
+  response => response,
+  async error => {
+    if (error.response?.status === 401) {
+      // Token expired - logout
+      localStorage.removeItem('access_token')
+      window.location.href = '/'
+    }
+    return Promise.reject(error)
+  }
+)
+```
+
+### Making API Calls
+
+```javascript
+// In a store action
+import { api } from '../api'
+
+export const useUsersStore = defineStore('users', {
+  actions: {
+    async fetchUsers() {
+      try {
+        const response = await api.get('/users')
+        this.users = response.data
+      } catch (error) {
+        console.error('Failed to fetch users:', error)
+        throw error
+      }
+    },
+
+    async createUser(userData) {
+      const response = await api.post('/users', userData)
+      return response.data
+    },
+
+    async updateUser(id, updates) {
+      const response = await api.post('/users/edit', { id, ...updates })
+      return response.data
+    },
+
+    async deleteUser(dni) {
+      await api.post('/users/delete', { dni })
+    },
+  },
+})
+```
+
+## Build Process
+
+### Vite Configuration
+
+```typescript
+import { fileURLToPath, URL } from 'node:url'
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+import vueJsx from '@vitejs/plugin-vue-jsx'
+import vueDevTools from 'vite-plugin-vue-devtools'
+
+export default defineConfig({
+  plugins: [
+    vue(),
+    vueJsx(),
+    vueDevTools(),
+  ],
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
+  build: {
+    sourcemap: true,
+  },
+})
+```
+
+### Development Server
+
+```bash
+# Start development server with HMR
+npm run dev
+
+# Development server runs on http://localhost:5173
+```
+
+### Production Build
+
+```bash
+# Type checking
+npm run type-check
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+```
+
+### Build Output
+
+Vite outputs optimized bundles:
+
+- **Code splitting**: Automatic route-based chunks
+- **Tree shaking**: Removes unused code
+- **Minification**: Compressed JavaScript and CSS
+- **Asset optimization**: Images and fonts
+- **Source maps**: For debugging production issues
+
+## Development Workflow
+
+### Creating a New Feature
+
+1. **Create route** in `src/router/index.ts`
+2. **Create view component** in `src/views/`
+3. **Create Pinia store** if needed in `src/stores/`
+4. **Create child components** in `src/components/`
+5. **Add navigation** in Menu.vue
+6. **Test authentication** and authorization
+
+### Component Communication
+
+```vue
+<!-- Parent Component -->
+<template>
+  <ChildComponent 
+    :prop-data="data"
+    @custom-event="handleEvent"
+  />
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import ChildComponent from './ChildComponent.vue'
+
+const data = ref({ ... })
+
+const handleEvent = (payload) => {
+  console.log('Event received:', payload)
+}
+</script>
+
+<!-- Child Component -->
+<template>
+  <button @click="emitEvent">Click Me</button>
+</template>
+
+<script setup>
+const props = defineProps({
+  propData: Object,
+})
+
+const emit = defineEmits(['customEvent'])
+
+const emitEvent = () => {
+  emit('customEvent', { message: 'Hello' })
+}
+</script>
+```
+
+## Testing
+
+### Unit Testing Setup
+
+```json
+{
+  "devDependencies": {
+    "@vue/test-utils": "^2.4.6",
+    "vitest": "^4.0.18",
+    "jsdom": "^27.4.0"
+  }
+}
+```
+
+### Running Tests
+
+```bash
+# Run unit tests
+npm run test:unit
+
+# Run tests in watch mode
+npm run test:unit -- --watch
+```
+
+## Performance Best Practices
+
+1. **Lazy Load Routes**: Use dynamic imports for route components
+2. **Computed Properties**: Cache expensive calculations
+3. **v-show vs v-if**: Use v-show for frequently toggled elements
+4. **Key Attributes**: Always use :key in v-for loops
+5. **Debounce Input**: Debounce search inputs to reduce API calls
+6. **Code Splitting**: Split large components into smaller chunks
+7. **Asset Optimization**: Compress images and fonts
+
+## Debugging Tools
+
+### Vue DevTools
+
+- Component inspector
+- Pinia store state viewer
+- Route navigation tracker
+- Performance profiler
+
+### Browser DevTools
+
+```javascript
+// Enable Vue DevTools in development
+if (import.meta.env.DEV) {
+  window.__VUE_DEVTOOLS_GLOBAL_HOOK__ = true
+}
+```

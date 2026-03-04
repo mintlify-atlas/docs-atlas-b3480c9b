@@ -1,0 +1,460 @@
+---
+title: Configuration Management
+description: Centralized configuration system for managing association data, board members, institutional relationships, bank accounts, and donations
+---
+
+## Overview
+
+The Configuration Management feature provides a centralized hub for managing all association-wide settings and data. This module organizes configuration into five main sections: association data, board of directors (junta directiva), institutional relationships, bank accounts, and donations/inheritances.
+
+Administrators can manage organizational structure, maintain institutional partnerships, configure banking information, and track donation records all from a single unified interface.
+
+## Key Functionality
+
+<CardGroup cols={2}>
+  <Card title="Association Profile" icon="building">
+    Manage core association information including name, CIF, email, and contact details
+  </Card>
+  <Card title="Board Management" icon="users-cog">
+    Maintain board of directors roster with member assignments and positions
+  </Card>
+  <Card title="Institutional Relations" icon="handshake">
+    Track partnerships, agreements, and relationships with other organizations
+  </Card>
+  <Card title="Financial Configuration" icon="coins">
+    Configure bank accounts and manage donation/inheritance records
+  </Card>
+</CardGroup>
+
+## User Interface Workflow
+
+The configuration interface (Configuracion.vue) implements a section-based navigation system:
+
+### Main Dashboard
+
+The configuration home screen displays:
+
+1. **Association Card Header**:
+   - Avatar circle with association initial
+   - Association name (from asociacionData.Nombre)
+   - CIF and email information
+   - Edit button for updating association data
+   - Loading state with animated sync icon
+
+2. **Configuration Sections Grid**:
+   - Color-coded cards for each section
+   - Material Symbols icons for visual identification
+   - Click any card to enter that section
+
+### Section Management Views
+
+Each section provides:
+
+1. **Navigation**: Back button to return to main dashboard
+2. **Header**: Section title with "Agregar" button
+3. **Search**: Real-time search for Relaciones and Donativos sections
+4. **List View**: Expandable list items showing:
+   - Summary information
+   - Edit and delete action buttons
+   - Expanded details with DataDisplay component
+
+## Configuration Sections
+
+### 1. Association Data (Datos)
+
+**Purpose**: Store core association information
+
+**Endpoint**: `GET/PUT /configuracion/datos`
+
+**Fields** (datosSchema):
+- Association name (Nombre)
+- Tax ID (CIF)
+- Email
+- Phone
+- Address information
+- Registration details
+
+**Workflow**:
+1. Click edit button on association card header
+2. Modal opens with datosSchema form
+3. Update association information
+4. System saves via `PUT /configuracion/datos`
+5. Dashboard header updates automatically
+
+### 2. Board of Directors (Junta Directiva)
+
+**Purpose**: Manage board member assignments and positions
+
+**Endpoints**:
+- `GET /configuracion/junta` - List all board members
+- `GET /configuracion/junta/usuarios-lista` - Get available users
+- `GET /configuracion/junta/cargos` - Get available positions
+- `POST /configuracion/junta` - Add board member
+- `PUT /configuracion/junta/:id` - Update board member
+- `DELETE /configuracion/junta/:id` - Remove board member
+
+**Data Structure**:
+```typescript
+{
+  id: number,
+  idUsuario: number,  // Foreign key to Usuarios
+  Nombre: string,
+  Apellidos: string,
+  cargo: string       // Board position
+}
+```
+
+**Workflow**:
+1. Click "Junta Directiva" card
+2. System fetches usuarios list for dropdown
+3. Click "Agregar" to add new board member
+4. Select user from dropdown (idUsuario)
+5. Assign position (cargo)
+6. System creates board assignment
+
+**List Display**:
+- Summary: Member full name (Nombre + Apellidos)
+- Details: Name, apellido, and cargo
+- Actions: Edit and delete buttons
+
+### 3. Institutional Relationships (Relaciones Institucionales)
+
+**Purpose**: Track partnerships and agreements with external organizations
+
+**Endpoints**:
+- `GET /configuracion/relaciones` - List all relationships
+- `POST /configuracion/relaciones` - Add new relationship
+- `PUT /configuracion/relaciones/:id` - Update relationship
+- `DELETE /configuracion/relaciones/:id` - Remove relationship
+
+**Data Structure** (RelacionesInstitucionalesSchema):
+```typescript
+{
+  IdInstitucion: number,
+  Nombre: string,      // Organization name
+  Email: string,       // Contact email
+  Web: string          // Website URL
+}
+```
+
+**Workflow**:
+1. Click "Relaciones Institucionales" card
+2. Use search to find specific organizations
+3. Click "Agregar" to create new relationship
+4. Fill in organization details
+5. System stores institutional partnership
+
+**Search Implementation**:
+```javascript
+const filteredRelaciones = computed(() => {
+  const query = searchQuery.value.toLowerCase().trim()
+  if (!query) return listaRelaciones.value
+
+  const results = listaRelaciones.value.map(rel => {
+    let score = 0
+    const nombre = rel.Nombre?.toString().toLowerCase() || ''
+    
+    if (nombre === query) score += 100
+    else if (nombre.startsWith(query)) score += 50
+    else if (nombre.includes(query)) score += 10
+
+    return { rel, score }
+  }).filter(item => item.score > 0)
+
+  return results.sort((a, b) => b.score - a.score).map(item => item.rel)
+})
+```
+
+### 4. Bank Accounts (Bancos)
+
+**Purpose**: Configure association bank account information
+
+**Endpoints**:
+- `GET /configuracion/bancos` - List all bank accounts
+- `POST /configuracion/bancos` - Add new account
+- `PUT /configuracion/bancos/:id` - Update account
+- `DELETE /configuracion/bancos/:id` - Remove account
+
+**Data Structure** (bancosSchema):
+```typescript
+{
+  ID: number,
+  Nombre: string,      // Bank name
+  IBAN: string,        // International bank account number
+  Swift: string        // SWIFT/BIC code
+}
+```
+
+**Workflow**:
+1. Click "Bancos" card
+2. View list of registered bank accounts
+3. Click "Agregar" to add new account
+4. Enter bank name, IBAN, and SWIFT code
+5. System stores banking information
+
+**List Display**:
+- Summary: Bank name (Nombre)
+- Details: Banco, IBAN, SWIFT
+- Actions: Edit and delete buttons
+
+### 5. Donations and Inheritances (Donativos)
+
+**Purpose**: Track donation and inheritance records
+
+**Endpoints**:
+- `GET /configuracion/donativos` - List all donation records
+- `POST /configuracion/donativos` - Add new record
+- `PUT /configuracion/donativos/:id` - Update record
+- `DELETE /configuracion/donativos/:id` - Remove record
+
+**Data Structure** (donativosSchema):
+```typescript
+{
+  idDonativo: number,
+  Nombre: string,      // Donor name or entity
+  Tipo: string,        // Type: "Donativo" or "Herencia"
+  NIF: string          // Tax ID of donor
+}
+```
+
+**Workflow**:
+1. Click "Donativos y herencias" card
+2. Use search to find specific donors
+3. Click "Agregar" to create new record
+4. Fill in donor information and type
+5. System stores donation record
+
+**Search Implementation**: Same weighted scoring as Relaciones
+
+## Icons and Color Coding
+
+```javascript
+const getIcon = (key) => {
+  const icons = {
+    datos: 'corporate_fare',
+    junta: 'groups',
+    relaciones: 'handshake',
+    bancos: 'account_balance',
+    donativos: 'redeem'
+  }
+  return icons[key] || 'settings'
+}
+
+const getColorClass = (key) => {
+  const colors = { 
+    datos: 'yellow', 
+    junta: 'green', 
+    relaciones: 'purple', 
+    bancos: 'blue', 
+    donativos: 'red' 
+  }
+  return colors[key] || ''
+}
+```
+
+## Data Validation
+
+The configuration module implements comprehensive validation:
+
+```javascript
+function validateRequiredFields(data, schema) {
+  for (const section of schema) {
+    for (const field of section.fields) {
+      if (field.required && 
+          (data[field.key] === undefined || 
+           data[field.key] === '' || 
+           data[field.key] === null)) {
+        return field.label || field.key;
+      }
+    }
+  }
+  return null;
+}
+```
+
+**Before submission**:
+1. System checks all required fields
+2. If missing field detected, shows error: `"Falta completar el campo obligatorio: {fieldLabel}"`
+3. Prevents submission until all required fields completed
+
+## Data Cleaning
+
+To prevent accidental data corruption, the system cleans data before sending:
+
+```javascript
+function cleanDataForSection(data, schema, section) {
+  // Only send fields defined in schema
+  const allowedKeys = schema.flatMap(s => s.fields.map(f => f.key));
+  const cleaned = {};
+  for (const key of allowedKeys) {
+    if (data[key] !== undefined) cleaned[key] = data[key];
+  }
+  
+  // Remove auto-generated IDs for specific sections
+  if (section === 'relaciones') {
+    delete cleaned.IdInstitucion;
+    delete cleaned.IdAsociacion;
+  }
+  
+  return cleaned;
+}
+```
+
+## Section ID Mapping
+
+Each section uses different primary key field names:
+
+```javascript
+const sectionIdMap = {
+  junta: 'id',
+  relaciones: 'IdInstitucion',
+  bancos: 'ID',
+  donativos: 'idDonativo'
+}
+```
+
+The system automatically uses the correct ID field when:
+- Updating records (`PUT /:id`)
+- Deleting records (`DELETE /:id`)
+- Identifying items in the UI
+
+## State Management
+
+The configuration uses Pinia store (useConfiguracionStore):
+
+```javascript
+const {
+  asociacionData,      // Main association info
+  listaJunta,          // Board members array
+  listaRelaciones,     // Institutional relationships
+  listaBancos,         // Bank accounts
+  listaDonativos,      // Donation records
+  loading              // Loading state
+} = storeToRefs(store)
+```
+
+**Store Actions**:
+- `fetchConfiguracion()` - Load all configuration data
+- `fetchSection(section)` - Load specific section data
+- `updateConfiguracion(data)` - Update association data
+- `createItem(section, data)` - Create new item in section
+- `updateItem(section, id, data)` - Update existing item
+- `deleteItem(section, id)` - Delete item from section
+- `fetchUsuariosSelect()` - Get users for junta dropdown
+
+## Error Handling
+
+```javascript
+async function handleSave(data) {
+  const section = selectedSection.value;
+  const isEditing = editingIndex.value !== null;
+  
+  // Validation
+  const schema = sectionForm[section];
+  const missingField = schema ? validateRequiredFields(data, schema) : null;
+  if (missingField) {
+    notificationStore.error(`Falta completar el campo obligatorio: ${missingField}`);
+    return;
+  }
+
+  // Data cleaning
+  const cleanedData = schema ? cleanDataForSection(data, schema, section) : data;
+
+  try {
+    if (isEditing) {
+      const id = editingData.value[sectionIdMap[section]];
+      if (!id) throw new Error('ID no encontrado');
+      await store.updateItem(section, id, cleanedData);
+    } else {
+      await store.createItem(section, cleanedData);
+    }
+    
+    notificationStore.success(isEditing ? '¡Actualizado con éxito!' : '¡Agregado con éxito!');
+  } catch (error) {
+    const detail = error?.response?.data?.detail || error?.message || 'Error desconocido';
+    notificationStore.error(`Error al guardar los datos: ${detail}`);
+  }
+}
+```
+
+## Use Cases
+
+### Initial Association Setup
+
+1. Administrator logs in for first time
+2. Configuration dashboard shows empty association name
+3. Click edit button on association card
+4. Fill in association data (name, CIF, email, etc.)
+5. System saves and displays in header
+6. Proceed to set up other sections
+
+### Board Member Management
+
+1. Navigate to Junta Directiva section
+2. Click "Agregar" to add board member
+3. Select member from usuarios dropdown
+4. Assign cargo (position): "Presidente", "Secretario", etc.
+5. System links user to board position
+6. Board member appears in list
+7. Update or remove as needed when positions change
+
+### Bank Account Configuration
+
+1. Navigate to Bancos section
+2. Add primary bank account with IBAN and SWIFT
+3. Add additional accounts as needed
+4. Use for payment processing and financial reporting
+5. Update account details when banking changes
+
+### Institutional Partnership Tracking
+
+1. Navigate to Relaciones Institucionales
+2. Add partner organizations
+3. Store contact email and website
+4. Search to quickly find partnership info
+5. Update contact details as relationships evolve
+
+### Donation Record Keeping
+
+1. Navigate to Donativos section
+2. Add new donation or inheritance record
+3. Specify type (Donativo vs Herencia)
+4. Store donor NIF for tax documentation
+5. Search donation history as needed
+
+<Note>
+All configuration data is protected and requires appropriate authentication. Only administrators and monitors can access configuration management.
+</Note>
+
+## Integration with Other Features
+
+- **Member Management**: Board members (junta) selected from Usuarios table
+- **Projects**: Association data displayed in reports and documentation
+- **Activities**: Configuration feeds into system-wide statistics
+
+## Responsive Design
+
+The configuration interface adapts to mobile devices:
+
+```css
+@media (max-width: 768px) {
+  .showUsers-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 15px;
+  }
+  .options {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+}
+```
+
+<Tip>
+Use the color-coded section cards to quickly identify different configuration areas. The icon system provides visual cues for each section's purpose.
+</Tip>
+
+## Related Documentation
+
+- [Member Management](/features/member-management) - Understanding user roles and permissions for configuration access

@@ -1,0 +1,737 @@
+---
+title: Database Schema
+description: MySQL database schema, TypeORM entities, relationships, and migration strategy for SociApp
+---
+
+## Overview
+
+SociApp uses MySQL as the relational database, with TypeORM as the Object-Relational Mapper (ORM). The database stores users, projects, activities, donations, and bank information.
+
+## Database Configuration
+
+### Connection Setup
+
+Database connection is configured in `src/app.module.ts` using TypeORM:
+
+```typescript
+import { TypeOrmModule } from '@nestjs/typeorm'
+import { ConfigModule, ConfigService } from '@nestjs/config'
+
+TypeOrmModule.forRootAsync({
+  imports: [ConfigModule],
+  inject: [ConfigService],
+  useFactory: (configService: ConfigService) => ({
+    type: 'mysql',
+    host: configService.get('DB_HOST'),
+    port: configService.get('DB_PORT'),
+    username: configService.get('DB_USERNAME'),
+    password: configService.get('DB_PASSWORD'),
+    database: configService.get('DB_NAME'),
+    entities: [__dirname + '/**/*.entity{.ts,.js}'],
+    synchronize: false,  // ⚠️ Always false in production
+  }),
+})
+```
+
+### Environment Variables
+
+```bash
+DB_HOST=localhost
+DB_PORT=3306
+DB_USERNAME=root
+DB_PASSWORD=your_password
+DB_NAME=sociapp
+```
+
+### MySQL Version
+
+- **Driver**: mysql2 ^3.16.3
+- **Recommended MySQL Version**: 8.0+
+- **Character Set**: utf8mb4
+- **Collation**: utf8mb4_unicode_ci
+
+## Entity Definitions
+
+### Users Entity (Usuarios)
+
+Location: `src/users/user.entity.ts`
+
+```typescript
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm'
+
+@Entity('usuarios')
+export class Usuarios {
+  @PrimaryGeneratedColumn()
+  IdUsuario: number
+
+  @Column()
+  nombre: string
+
+  @Column()
+  apellidos: string
+
+  @Column()
+  password: string
+
+  @Column()
+  dni: string
+
+  @Column()
+  direccion: string
+
+  @Column({ name: 'CP' })
+  CP: string
+
+  @Column()
+  provincia: string
+
+  @Column()
+  poblacion: string
+
+  @Column()
+  pais: string
+
+  @Column()
+  email: string
+
+  @Column()
+  telefono: string
+
+  @Column({ type: 'date' })
+  fechaalta: Date
+
+  @Column({ type: 'date', nullable: true })
+  fechabaja: Date
+
+  @Column()
+  formadepago: string
+
+  @Column({ type: 'decimal' })
+  cuota: number
+
+  @Column()
+  categoria: string
+
+  @Column({
+    type: 'enum',
+    enum: ['Socio', 'NoSocio'],
+    default: 'NoSocio'
+  })
+  socio: 'Socio' | 'NoSocio'
+
+  @Column({ default: false })
+  isVerified: boolean
+
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  verificationCode: string | null
+
+  @Column({ type: 'timestamp', nullable: true })
+  verificationExpires: Date | null
+}
+```
+
+#### Users Table Schema
+
+```sql
+CREATE TABLE usuarios (
+  IdUsuario INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(255) NOT NULL,
+  apellidos VARCHAR(255) NOT NULL,
+  password VARCHAR(255) NOT NULL,
+  dni VARCHAR(50) NOT NULL,
+  direccion VARCHAR(255) NOT NULL,
+  CP VARCHAR(20) NOT NULL,
+  provincia VARCHAR(100) NOT NULL,
+  poblacion VARCHAR(100) NOT NULL,
+  pais VARCHAR(100) NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  telefono VARCHAR(50) NOT NULL,
+  fechaalta DATE NOT NULL,
+  fechabaja DATE NULL,
+  formadepago VARCHAR(100) NOT NULL,
+  cuota DECIMAL(10,2) NOT NULL,
+  categoria VARCHAR(100) NOT NULL,
+  socio ENUM('Socio', 'NoSocio') DEFAULT 'NoSocio',
+  isVerified BOOLEAN DEFAULT FALSE,
+  verificationCode VARCHAR(10) NULL,
+  verificationExpires TIMESTAMP NULL,
+  INDEX idx_email (email),
+  INDEX idx_dni (dni)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+#### Users Fields Description
+
+| Field | Type | Description |
+|-------|------|-------------|
+| IdUsuario | INT | Primary key, auto-increment |
+| nombre | VARCHAR | User's first name |
+| apellidos | VARCHAR | User's last name |
+| password | VARCHAR | Bcrypt hashed password (12 rounds) |
+| dni | VARCHAR | National ID number |
+| direccion | VARCHAR | Street address |
+| CP | VARCHAR | Postal code |
+| provincia | VARCHAR | Province/state |
+| poblacion | VARCHAR | City/town |
+| pais | VARCHAR | Country |
+| email | VARCHAR | Email address (unique) |
+| telefono | VARCHAR | Phone number |
+| fechaalta | DATE | Registration date |
+| fechabaja | DATE | Deactivation date (nullable) |
+| formadepago | VARCHAR | Payment method |
+| cuota | DECIMAL | Membership fee amount |
+| categoria | VARCHAR | User role (monitor, admin, socio) |
+| socio | ENUM | Member status |
+| isVerified | BOOLEAN | Email verification status |
+| verificationCode | VARCHAR(10) | 6-digit verification code |
+| verificationExpires | TIMESTAMP | Code expiration timestamp |
+
+### Projects Entity (Proyectos)
+
+Location: `src/projects/project.entity.ts`
+
+```typescript
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm'
+import { Usuarios } from '../users/user.entity'
+import { Activity } from '../activities/activity.entity'
+
+@Entity('proyectos')
+export class Proyecto {
+  @PrimaryGeneratedColumn()
+  idProyecto: number
+
+  @Column({ length: 255 })
+  nombre: string
+
+  @Column({ type: 'text', nullable: true })
+  descripcion: string
+
+  @Column({ length: 50 })
+  estado: string
+
+  @ManyToOne(() => Usuarios)
+  @JoinColumn({ name: 'Responsable' })
+  responsable: Usuarios
+
+  @Column('decimal')
+  presupuesto: number
+
+  @Column({ length: 150, nullable: true })
+  fuenteFinanciacion: string
+
+  @Column({ type: 'date' })
+  startDate: Date
+
+  @Column({ type: 'date', nullable: true })
+  endDate: Date
+
+  @Column({ type: 'text', nullable: true })
+  notas: string
+
+  @Column('simple-array', { nullable: true })
+  subproyectos: string[]
+
+  @Column('simple-array', { nullable: true })
+  actividades: string[]
+
+  @OneToMany(() => Activity, (activity) => activity.id)
+  actividadesList: Activity[]
+
+  @Column('simple-array', { nullable: true })
+  pdfPath: string[]
+}
+```
+
+#### Projects Table Schema
+
+```sql
+CREATE TABLE proyectos (
+  idProyecto INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(255) NOT NULL,
+  descripcion TEXT NULL,
+  estado VARCHAR(50) NOT NULL,
+  Responsable INT NULL,
+  presupuesto DECIMAL(10,2) NOT NULL,
+  fuenteFinanciacion VARCHAR(150) NULL,
+  startDate DATE NOT NULL,
+  endDate DATE NULL,
+  notas TEXT NULL,
+  subproyectos TEXT NULL,
+  actividades TEXT NULL,
+  pdfPath TEXT NULL,
+  FOREIGN KEY (Responsable) REFERENCES usuarios(IdUsuario) ON DELETE SET NULL,
+  INDEX idx_estado (estado),
+  INDEX idx_responsable (Responsable)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+### Activities Entity (Actividades)
+
+Location: `src/activities/activity.entity.ts`
+
+```typescript
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm'
+import { Usuarios } from '../users/user.entity'
+
+@Entity('actividades')
+export class Activity {
+  @PrimaryGeneratedColumn({ name: 'Id' })
+  id: number
+
+  @Column({ name: 'Nombre' })
+  name: string
+
+  @Column({ name: 'Lugar' })
+  place: string
+
+  @Column({ name: 'HoraInicio', type: 'time' })
+  horaInicio: string
+
+  @Column({ name: 'HoraFin', type: 'time' })
+  horaFin: string
+
+  @Column({ name: 'DiaSemana' })
+  diaSemana: string
+
+  @Column({ name: 'Icon', nullable: true })
+  icon: string
+
+  @Column({ name: 'idMonitor', nullable: true })
+  idMonitor: number
+
+  @ManyToOne(() => Usuarios)
+  @JoinColumn({ name: 'idMonitor' })
+  monitor: Usuarios
+}
+```
+
+#### Activities Table Schema
+
+```sql
+CREATE TABLE actividades (
+  Id INT AUTO_INCREMENT PRIMARY KEY,
+  Nombre VARCHAR(255) NOT NULL,
+  Lugar VARCHAR(255) NOT NULL,
+  HoraInicio TIME NOT NULL,
+  HoraFin TIME NOT NULL,
+  DiaSemana VARCHAR(50) NOT NULL,
+  Icon VARCHAR(100) NULL,
+  idMonitor INT NULL,
+  FOREIGN KEY (idMonitor) REFERENCES usuarios(IdUsuario) ON DELETE SET NULL,
+  INDEX idx_dia (DiaSemana)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+### Donations Entity (Donativo)
+
+Location: `src/donativos/donativo.entity.ts`
+
+```typescript
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm'
+
+@Entity()
+export class Donativo {
+  @PrimaryGeneratedColumn()
+  id: number
+
+  @Column()
+  cantidad: number
+
+  @Column()
+  fecha: Date
+
+  @Column({ nullable: true })
+  descripcion?: string
+}
+```
+
+### Banks Entity (Banco)
+
+Location: `src/bancos/banco.entity.ts`
+
+```typescript
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm'
+
+@Entity()
+export class Banco {
+  @PrimaryGeneratedColumn()
+  id: number
+
+  @Column()
+  nombre: string
+
+  @Column({ nullable: true })
+  descripcion?: string
+}
+```
+
+## Database Relationships
+
+### Entity Relationship Diagram
+
+```
+┌─────────────────────┐
+│      Usuarios       │
+│  (usuarios)         │
+├─────────────────────┤
+│ PK: IdUsuario       │
+│     nombre          │
+│     email           │
+│     categoria       │
+│     ...             │
+└──────────┬──────────┘
+           │
+           │ 1:N (Responsable)
+           │
+           ├─────────────────┐
+           │                 │
+           ▼                 ▼
+  ┌────────────────┐  ┌──────────────────┐
+  │   Proyectos    │  │   Actividades    │
+  │  (proyectos)   │  │  (actividades)   │
+  ├────────────────┤  ├──────────────────┤
+  │ PK: idProyecto │  │ PK: Id           │
+  │ FK: Responsable│  │ FK: idMonitor    │
+  │     nombre     │  │     Nombre       │
+  │     estado     │  │     Lugar        │
+  │     ...        │  │     HoraInicio   │
+  └────────────────┘  └──────────────────┘
+
+  ┌────────────────┐  ┌──────────────────┐
+  │   Donativo     │  │      Banco       │
+  ├────────────────┤  ├──────────────────┤
+  │ PK: id         │  │ PK: id           │
+  │     cantidad   │  │     nombre       │
+  │     fecha      │  │     descripcion  │
+  └────────────────┘  └──────────────────┘
+```
+
+### Relationship Details
+
+#### Usuarios → Proyectos (One-to-Many)
+
+- **Relationship**: A user can be responsible for multiple projects
+- **Foreign Key**: `Responsable` in `proyectos` table
+- **TypeORM**: `@ManyToOne(() => Usuarios)`
+- **On Delete**: SET NULL (projects remain if user deleted)
+
+```typescript
+// In Project entity
+@ManyToOne(() => Usuarios)
+@JoinColumn({ name: 'Responsable' })
+responsable: Usuarios
+```
+
+#### Usuarios → Actividades (One-to-Many)
+
+- **Relationship**: A user (monitor) can supervise multiple activities
+- **Foreign Key**: `idMonitor` in `actividades` table
+- **TypeORM**: `@ManyToOne(() => Usuarios)`
+- **On Delete**: SET NULL (activities remain if monitor deleted)
+
+```typescript
+// In Activity entity
+@ManyToOne(() => Usuarios)
+@JoinColumn({ name: 'idMonitor' })
+monitor: Usuarios
+```
+
+#### Proyectos → Actividades (One-to-Many)
+
+- **Relationship**: Projects can contain multiple activities
+- **Storage**: `actividades` column stores activity IDs as simple array
+- **TypeORM**: `@OneToMany(() => Activity, ...)`
+
+```typescript
+// In Project entity
+@Column('simple-array', { nullable: true })
+actividades: string[]
+
+@OneToMany(() => Activity, (activity) => activity.id)
+actividadesList: Activity[]
+```
+
+## TypeORM Features Used
+
+### Column Types
+
+```typescript
+// String types
+@Column()                          // VARCHAR(255)
+@Column({ length: 100 })          // VARCHAR(100)
+@Column({ type: 'text' })         // TEXT
+
+// Numeric types
+@Column({ type: 'decimal' })      // DECIMAL(10,2)
+@Column({ type: 'int' })          // INT
+
+// Date types
+@Column({ type: 'date' })         // DATE
+@Column({ type: 'time' })         // TIME
+@Column({ type: 'timestamp' })    // TIMESTAMP
+
+// Boolean
+@Column({ default: false })       // BOOLEAN
+
+// Enum
+@Column({
+  type: 'enum',
+  enum: ['Socio', 'NoSocio'],
+  default: 'NoSocio'
+})
+
+// Array (stored as comma-separated)
+@Column('simple-array', { nullable: true })
+pdfPath: string[]
+```
+
+### Nullable Columns
+
+```typescript
+@Column({ nullable: true })
+optionalField?: string
+```
+
+### Default Values
+
+```typescript
+@Column({ default: false })
+isVerified: boolean
+
+@Column({
+  type: 'enum',
+  enum: ['Socio', 'NoSocio'],
+  default: 'NoSocio'
+})
+socio: 'Socio' | 'NoSocio'
+```
+
+### Custom Column Names
+
+```typescript
+@Column({ name: 'CP' })  // Maps to 'CP' in database
+CP: string               // Accessed as 'CP' in code
+
+@Column({ name: 'HoraInicio' })
+horaInicio: string
+```
+
+## Repository Pattern
+
+### Injecting Repositories
+
+```typescript
+import { Injectable } from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
+import { Usuarios } from './user.entity'
+
+@Injectable()
+export class UsersService {
+  constructor(
+    @InjectRepository(Usuarios)
+    private usersRepository: Repository<Usuarios>,
+  ) {}
+}
+```
+
+### Common Repository Methods
+
+```typescript
+// Find all
+const users = await this.usersRepository.find()
+
+// Find with conditions
+const user = await this.usersRepository.findOne({ 
+  where: { email: 'user@example.com' } 
+})
+
+// Find with relations
+const project = await this.projectRepository.findOne({
+  where: { idProyecto: 1 },
+  relations: ['responsable', 'actividadesList'],
+})
+
+// Create and save
+const user = this.usersRepository.create(dto)
+await this.usersRepository.save(user)
+
+// Update
+await this.usersRepository.update(
+  { IdUsuario: 1 },
+  { nombre: 'New Name' }
+)
+
+// Delete
+await this.usersRepository.delete({ IdUsuario: 1 })
+
+// Count
+const count = await this.usersRepository.count()
+
+// Query builder
+const users = await this.usersRepository
+  .createQueryBuilder('user')
+  .where('user.categoria = :cat', { cat: 'admin' })
+  .andWhere('user.isVerified = :verified', { verified: true })
+  .orderBy('user.fechaalta', 'DESC')
+  .getMany()
+```
+
+## Migration Strategy
+
+### Current Approach
+
+```typescript
+// In app.module.ts
+TypeOrmModule.forRootAsync({
+  useFactory: (configService: ConfigService) => ({
+    // ...
+    synchronize: false,  // ⚠️ Disabled for safety
+  }),
+})
+```
+
+**Important**: `synchronize: false` means TypeORM will NOT automatically modify the database schema. This prevents accidental data loss.
+
+### Manual Migration Workflow
+
+#### 1. Generate Migration
+
+```bash
+npm run typeorm migration:generate -- -n MigrationName
+```
+
+#### 2. Create Empty Migration
+
+```bash
+npm run typeorm migration:create -- -n MigrationName
+```
+
+#### 3. Run Migrations
+
+```bash
+npm run typeorm migration:run
+```
+
+#### 4. Revert Migration
+
+```bash
+npm run typeorm migration:revert
+```
+
+### Example Migration File
+
+```typescript
+import { MigrationInterface, QueryRunner, Table } from 'typeorm'
+
+export class CreateUsersTable1234567890 implements MigrationInterface {
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.createTable(
+      new Table({
+        name: 'usuarios',
+        columns: [
+          {
+            name: 'IdUsuario',
+            type: 'int',
+            isPrimary: true,
+            isGenerated: true,
+            generationStrategy: 'increment',
+          },
+          {
+            name: 'nombre',
+            type: 'varchar',
+            length: '255',
+          },
+          {
+            name: 'email',
+            type: 'varchar',
+            length: '255',
+            isUnique: true,
+          },
+          // ... more columns
+        ],
+      }),
+      true
+    )
+  }
+
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.dropTable('usuarios')
+  }
+}
+```
+
+## Database Indexes
+
+### Recommended Indexes
+
+```sql
+-- Users table
+CREATE INDEX idx_email ON usuarios(email);
+CREATE INDEX idx_dni ON usuarios(dni);
+CREATE INDEX idx_categoria ON usuarios(categoria);
+
+-- Projects table
+CREATE INDEX idx_estado ON proyectos(estado);
+CREATE INDEX idx_responsable ON proyectos(Responsable);
+CREATE INDEX idx_start_date ON proyectos(startDate);
+
+-- Activities table
+CREATE INDEX idx_dia ON actividades(DiaSemana);
+CREATE INDEX idx_monitor ON actividades(idMonitor);
+```
+
+## Query Optimization Tips
+
+1. **Use Relations Wisely**: Only load relations when needed
+   ```typescript
+   // Bad: Always loads relation
+   find({ relations: ['responsable'] })
+   
+   // Good: Load only when needed
+   find()  // No relation
+   ```
+
+2. **Select Specific Columns**: Don't load unnecessary data
+   ```typescript
+   this.usersRepository
+     .createQueryBuilder('user')
+     .select(['user.IdUsuario', 'user.nombre', 'user.email'])
+     .getMany()
+   ```
+
+3. **Use Pagination**: For large datasets
+   ```typescript
+   find({
+     take: 10,   // LIMIT
+     skip: 20,   // OFFSET
+   })
+   ```
+
+4. **Cache Frequent Queries**: Use NestJS cache module
+
+## Backup and Maintenance
+
+### Backup Command
+
+```bash
+mysqldump -u root -p sociapp > backup_$(date +%Y%m%d).sql
+```
+
+### Restore Command
+
+```bash
+mysql -u root -p sociapp < backup_20260304.sql
+```
+
+### Regular Maintenance
+
+```sql
+-- Optimize tables
+OPTIMIZE TABLE usuarios;
+OPTIMIZE TABLE proyectos;
+OPTIMIZE TABLE actividades;
+
+-- Analyze tables
+ANALYZE TABLE usuarios;
+```

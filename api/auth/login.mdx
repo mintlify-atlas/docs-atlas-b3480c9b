@@ -1,0 +1,163 @@
+---
+title: 'Login'
+description: 'Authenticate a user and receive access tokens'
+api: 'POST /auth/login'
+---
+
+## Description
+
+Authenticates a user with their email and password. On successful authentication, returns an access token and sets a refresh token as an HTTP-only cookie.
+
+<Warning>
+  This endpoint is protected by rate limiting (ThrottlerGuard) to prevent brute force attacks.
+</Warning>
+
+<Info>
+  Users must verify their email before they can log in. Unverified users will receive an authorization error.
+</Info>
+
+## Request Body
+
+<ParamField body="email" type="string" required>
+  User's email address (must be valid email format)
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password
+</ParamField>
+
+## Request Example
+
+<CodeGroup>
+
+```bash curl
+curl -X POST https://api.sociapp.com/auth/login \
+  -H "Content-Type: application/json" \
+  -c cookies.txt \
+  -d '{
+    "email": "juan.garcia@example.com",
+    "password": "SecurePassword123!"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/auth/login', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  credentials: 'include', // Important for cookies
+  body: JSON.stringify({
+    email: 'juan.garcia@example.com',
+    password: 'SecurePassword123!'
+  })
+});
+
+const data = await response.json();
+```
+
+</CodeGroup>
+
+## Response
+
+### Success Response
+
+<ResponseField name="access_token" type="string">
+  JWT access token valid for 15 minutes. Use this token in the Authorization header for authenticated requests.
+</ResponseField>
+
+<Info>
+  The refresh token is automatically set as an HTTP-only cookie named `refresh_token` with the following properties:
+  - Path: `/auth/refresh`
+  - Max Age: 7 days
+  - SameSite: `strict`
+  - Secure: `true` (in production)
+  - HttpOnly: `true`
+</Info>
+
+<CodeGroup>
+
+```json 200 OK
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEyMzQ1LCJlbWFpbCI6Imp1YW4uZ2FyY2lhQGV4YW1wbGUuY29tIiwiaWF0IjoxNzA5NTUwMDAwLCJleHAiOjE3MDk1NTA5MDB9.abc123def456"
+}
+```
+
+</CodeGroup>
+
+### Error Responses
+
+<CodeGroup>
+
+```json 401 Unauthorized - Invalid Credentials
+{
+  "statusCode": 401,
+  "message": "Invalid credentials",
+  "error": "Unauthorized"
+}
+```
+
+```json 401 Unauthorized - Email Not Verified
+{
+  "statusCode": 401,
+  "message": "Por favor, verifique su correo electrónico antes de iniciar sesión.",
+  "error": "Unauthorized"
+}
+```
+
+```json 401 Unauthorized - Expired Registration
+{
+  "statusCode": 401,
+  "message": "Su registro ha expirado por falta de verificación y ha sido eliminado. Por favor, regístrese de nuevo.",
+  "error": "Unauthorized"
+}
+```
+
+```json 400 Bad Request
+{
+  "statusCode": 400,
+  "message": [
+    "email must be an email"
+  ],
+  "error": "Bad Request"
+}
+```
+
+```json 429 Too Many Requests
+{
+  "statusCode": 429,
+  "message": "ThrottlerException: Too Many Requests"
+}
+```
+
+</CodeGroup>
+
+## Authentication Flow
+
+1. User submits email and password
+2. System validates credentials using bcrypt password comparison
+3. System checks if email is verified
+4. If verification code has expired, the registration is deleted
+5. On success, system generates two JWT tokens:
+   - Access token (15 minutes expiry)
+   - Refresh token (7 days expiry)
+6. Access token is returned in response body
+7. Refresh token is set as HTTP-only cookie
+
+## Using the Access Token
+
+Include the access token in the Authorization header for authenticated requests:
+
+```bash
+curl -X GET https://api.sociapp.com/auth/me \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+## Token Payload
+
+The JWT access token contains the following claims:
+
+- `sub`: User ID (IdUsuario)
+- `email`: User's email address
+- `iat`: Issued at timestamp
+- `exp`: Expiration timestamp

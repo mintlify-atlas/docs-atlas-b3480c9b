@@ -1,0 +1,179 @@
+---
+title: 'Update Project'
+api: 'PUT /projects/:id'
+---
+
+Updates an existing project. All fields are optional. Supports uploading additional PDF files.
+
+## Authentication
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication
+</ParamField>
+
+**Required Roles:** `monitor` or `admin`
+
+## Content Type
+
+**Important:** This endpoint accepts `multipart/form-data` to support file uploads.
+
+## Path Parameters
+
+<ParamField path="id" type="number" required>
+  The project ID (idProyecto) to update
+</ParamField>
+
+## Request Body
+
+All fields are optional. Only include fields you want to update.
+
+<ParamField body="nombre" type="string">
+  Project name (max 255 characters)
+</ParamField>
+
+<ParamField body="descripcion" type="string">
+  Detailed project description
+</ParamField>
+
+<ParamField body="estado" type="string">
+  Current project status (max 50 characters). Examples: "Planificado", "En Progreso", "Completado"
+</ParamField>
+
+<ParamField body="responsableId" type="number">
+  User ID of the project manager/responsible person
+</ParamField>
+
+<ParamField body="presupuesto" type="number">
+  Project budget (decimal value)
+</ParamField>
+
+<ParamField body="fuenteFinanciacion" type="string">
+  Funding source (max 150 characters)
+</ParamField>
+
+<ParamField body="startDate" type="string">
+  Project start date in ISO 8601 format (YYYY-MM-DD)
+</ParamField>
+
+<ParamField body="endDate" type="string">
+  Project end date in ISO 8601 format (YYYY-MM-DD)
+</ParamField>
+
+<ParamField body="notas" type="string">
+  Additional notes or comments about the project
+</ParamField>
+
+<ParamField body="subproyectos" type="array">
+  Array of subproject identifiers
+</ParamField>
+
+<ParamField body="activityIds" type="array">
+  Array of activity IDs to associate with the project. Each element should be a number.
+</ParamField>
+
+<ParamField body="pdf" type="file[]">
+  Additional PDF files to upload (max 10 files, 10MB each)
+  
+  **File Upload Restrictions:**
+  - Field name: `pdf`
+  - Maximum files: 10
+  - Allowed format: PDF only
+  - Maximum file size: 10MB per file
+  - **Note:** New PDFs are appended to existing pdfPath array, not replaced
+</ParamField>
+
+## Behavior
+
+- **PDF Files:** When new PDF files are uploaded, they are **added** to the existing `pdfPath` array rather than replacing it. This allows accumulating multiple documents over time.
+- **Other Fields:** Updated fields replace the existing values.
+- **Omitted Fields:** Fields not included in the request remain unchanged.
+
+## Response
+
+Returns the updated project object with all fields:
+
+<ResponseField name="idProyecto" type="number">
+  Unique identifier for the project
+</ResponseField>
+
+<ResponseField name="pdfPath" type="array">
+  Array of all PDF file paths (existing + newly uploaded)
+</ResponseField>
+
+<ResponseField name="responsable" type="object">
+  Full user object of the responsible person
+</ResponseField>
+
+<ResponseField name="detallesActividades" type="array">
+  Array of activity details with id and nombre for each associated activity
+</ResponseField>
+
+## Example Request
+
+```bash
+curl -X PUT https://api.sociapp.com/projects/1 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "estado=En Progreso" \
+  -F "presupuesto=55000.00" \
+  -F "notas=Budget increased due to scope expansion" \
+  -F "pdf=@additional-document.pdf"
+```
+
+## Example Response
+
+```json
+{
+  "idProyecto": 1,
+  "nombre": "Community Development Project",
+  "descripcion": "A project to improve community infrastructure",
+  "estado": "En Progreso",
+  "presupuesto": 55000.00,
+  "fuenteFinanciacion": "Municipal Budget",
+  "startDate": "2024-01-15",
+  "endDate": "2024-12-31",
+  "notas": "Budget increased due to scope expansion",
+  "subproyectos": [],
+  "actividades": ["1", "2"],
+  "pdfPath": [
+    "/uploads/projects/pdf-1234567890-123456789.pdf",
+    "/uploads/projects/pdf-1234567890-987654321.pdf",
+    "/uploads/projects/pdf-1709876543-456789123.pdf"
+  ],
+  "responsable": {
+    "IdUsuario": 5,
+    "Nombre": "John",
+    "Apellido": "Doe"
+  },
+  "responsableId": 5,
+  "detallesActividades": [
+    { "id": 1, "nombre": "Planning" },
+    { "id": 2, "nombre": "Execution" }
+  ]
+}
+```
+
+## Error Responses
+
+### 400 Bad Request
+```json
+{
+  "statusCode": 400,
+  "message": "Solo se permiten archivos PDF"
+}
+```
+Returned when attempting to upload non-PDF files.
+
+### 401 Unauthorized
+Returned when the authentication token is missing or invalid.
+
+### 403 Forbidden
+Returned when the user does not have the required role (monitor or admin).
+
+### 404 Not Found
+```json
+{
+  "statusCode": 404,
+  "message": "Proyecto no encontrado"
+}
+```
+Returned when the specified project ID does not exist.

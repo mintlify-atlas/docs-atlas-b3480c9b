@@ -1,0 +1,238 @@
+---
+title: "Create User"
+api: "POST /users"
+description: "Create a new user in the system"
+---
+
+## Authentication
+
+This endpoint requires JWT authentication and role-based authorization.
+
+**Required Guards:**
+- `JwtAuthGuard` - Valid JWT token required
+- `RolesGuard` - User must have one of the allowed roles
+
+**Allowed Roles:**
+- `monitor`
+- `admin`
+
+## Request Body
+
+<ParamField body="nombre" type="string" required>
+  User's first name
+</ParamField>
+
+<ParamField body="apellidos" type="string" required>
+  User's last name
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password (will be hashed with bcrypt using 12 salt rounds)
+</ParamField>
+
+<ParamField body="dni" type="string" required>
+  National identification number (DNI)
+</ParamField>
+
+<ParamField body="direccion" type="string" required>
+  Street address
+</ParamField>
+
+<ParamField body="CP" type="string" required>
+  Postal code
+</ParamField>
+
+<ParamField body="provincia" type="string" required>
+  Province
+</ParamField>
+
+<ParamField body="poblacion" type="string" required>
+  City/town
+</ParamField>
+
+<ParamField body="pais" type="string" required>
+  Country
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  User's email address (must be valid email format)
+</ParamField>
+
+<ParamField body="telefono" type="string" required>
+  Phone number
+</ParamField>
+
+<ParamField body="fechaalta" type="string" required>
+  Registration date in ISO 8601 date format (YYYY-MM-DD)
+</ParamField>
+
+<ParamField body="fechabaja" type="string">
+  Deactivation date in ISO 8601 date format (YYYY-MM-DD). Optional field.
+</ParamField>
+
+<ParamField body="formadepago" type="string" required>
+  Payment method (e.g., "Transferencia", "Tarjeta", "Efectivo")
+</ParamField>
+
+<ParamField body="cuota" type="number" required>
+  Membership fee amount
+</ParamField>
+
+<ParamField body="categoria" type="string" required>
+  User category (e.g., "monitor", "admin", "socio")
+</ParamField>
+
+<ParamField body="socio" type="string" required>
+  Membership status - Must be either "Socio" or "NoSocio". Also accepts numeric values: 0 for "NoSocio", 1 for "Socio"
+</ParamField>
+
+## Response
+
+Returns the created user object with all fields from the database entity.
+
+<ResponseField name="IdUsuario" type="number" required>
+  Auto-generated unique user identifier
+</ResponseField>
+
+<ResponseField name="nombre" type="string" required>
+  User's first name
+</ResponseField>
+
+<ResponseField name="apellidos" type="string" required>
+  User's last name
+</ResponseField>
+
+<ResponseField name="password" type="string" required>
+  Hashed password (bcrypt)
+</ResponseField>
+
+<ResponseField name="dni" type="string" required>
+  National identification number
+</ResponseField>
+
+<ResponseField name="direccion" type="string" required>
+  Street address
+</ResponseField>
+
+<ResponseField name="CP" type="string" required>
+  Postal code
+</ResponseField>
+
+<ResponseField name="provincia" type="string" required>
+  Province
+</ResponseField>
+
+<ResponseField name="poblacion" type="string" required>
+  City/town
+</ResponseField>
+
+<ResponseField name="pais" type="string" required>
+  Country
+</ResponseField>
+
+<ResponseField name="email" type="string" required>
+  User's email address
+</ResponseField>
+
+<ResponseField name="telefono" type="string" required>
+  Phone number
+</ResponseField>
+
+<ResponseField name="fechaalta" type="date" required>
+  Registration date
+</ResponseField>
+
+<ResponseField name="fechabaja" type="date">
+  Deactivation date (nullable)
+</ResponseField>
+
+<ResponseField name="formadepago" type="string" required>
+  Payment method
+</ResponseField>
+
+<ResponseField name="cuota" type="number" required>
+  Membership fee amount
+</ResponseField>
+
+<ResponseField name="categoria" type="string" required>
+  User category
+</ResponseField>
+
+<ResponseField name="socio" type="string" required>
+  Membership status - "Socio" or "NoSocio"
+</ResponseField>
+
+<ResponseField name="isVerified" type="boolean" required>
+  Email verification status (automatically set to true for admin-created users)
+</ResponseField>
+
+<ResponseField name="verificationCode" type="string">
+  Email verification code (null for admin-created users)
+</ResponseField>
+
+<ResponseField name="verificationExpires" type="timestamp">
+  Verification code expiration (null for admin-created users)
+</ResponseField>
+
+## Example Request
+
+```bash
+curl -X POST https://api.sociapp.com/users \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nombre": "María",
+    "apellidos": "Rodríguez Pérez",
+    "password": "SecurePassword123!",
+    "dni": "45678912C",
+    "direccion": "Calle Luna 67",
+    "CP": "46001",
+    "provincia": "Valencia",
+    "poblacion": "Valencia",
+    "pais": "España",
+    "email": "maria.rodriguez@example.com",
+    "telefono": "622345678",
+    "fechaalta": "2024-03-15",
+    "formadepago": "Transferencia",
+    "cuota": 28.50,
+    "categoria": "socio",
+    "socio": "Socio"
+  }'
+```
+
+## Example Response
+
+```json
+{
+  "IdUsuario": 15,
+  "nombre": "María",
+  "apellidos": "Rodríguez Pérez",
+  "password": "$2b$12$abcdefghijklmnopqrstuvwxyz1234567890ABCDEFGH",
+  "dni": "45678912C",
+  "direccion": "Calle Luna 67",
+  "CP": "46001",
+  "provincia": "Valencia",
+  "poblacion": "Valencia",
+  "pais": "España",
+  "email": "maria.rodriguez@example.com",
+  "telefono": "622345678",
+  "fechaalta": "2024-03-15",
+  "fechabaja": null,
+  "formadepago": "Transferencia",
+  "cuota": 28.50,
+  "categoria": "socio",
+  "socio": "Socio",
+  "isVerified": true,
+  "verificationCode": null,
+  "verificationExpires": null
+}
+```
+
+## Notes
+
+- Passwords are automatically hashed using bcrypt with 12 salt rounds before storage
+- Users created by administrators are automatically marked as verified (`isVerified: true`)
+- The `socio` field accepts both string values ("Socio"/"NoSocio") and numeric values (1/0)
+- All fields except `fechabaja` are required
+- Email format is validated
+- Dates must be in ISO 8601 format (YYYY-MM-DD)

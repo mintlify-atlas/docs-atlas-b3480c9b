@@ -1,0 +1,388 @@
+---
+title: Activity Management
+description: Manage association activities, schedules, locations, and monitor assignments for recurring and special events
+---
+
+## Overview
+
+The Activity Management feature enables associations to organize, schedule, and track their regular activities and events. Activities represent recurring sessions (like weekly classes, workshops, or meetings) with assigned monitors, specific time slots, and locations.
+
+This module provides comprehensive tools for scheduling activities throughout the week, assigning responsible monitors, linking activities to projects, and managing activity lifecycles.
+
+## Key Functionality
+
+<CardGroup cols={2}>
+  <Card title="Activity Scheduling" icon="calendar">
+    Create activities with specific days of the week, start/end times, and locations
+  </Card>
+  <Card title="Monitor Assignment" icon="user-check">
+    Assign association members as activity monitors with automatic user lookup
+  </Card>
+  <Card title="Project Integration" icon="link">
+    Link activities to one or more projects for comprehensive project management
+  </Card>
+  <Card title="Smart Search" icon="search">
+    Find activities by name, monitor, location, or day of the week with weighted scoring
+  </Card>
+</CardGroup>
+
+## User Interface Workflow
+
+The activity management interface (Actividades.vue) provides an intuitive workflow:
+
+### Activity List View
+
+1. **Search Bar**: Real-time search across activity name, monitor, location, and day
+2. **Pagination**: Display 10 activities per page with navigation controls
+3. **Activity Cards**: Expandable items showing:
+   - **Summary**: Activity name and assigned monitor
+   - **Details**: Full activity information including schedule, location, and linked projects
+
+### Activity Operations
+
+<Note>
+All activity operations require `monitor` or `admin` role authentication.
+</Note>
+
+**Create Activity**
+- Click "Agregar Actividad" button
+- Fill in ActivitySchema form fields:
+  - Activity name
+  - Location (lugar)
+  - Day of week (diaSemana)
+  - Start time (horaInicio) and end time (horaFin)
+  - Monitor selection (idMonitor)
+  - Optional: Associate with projects (projectIds)
+  - Optional: Icon for visual representation
+
+**Edit Activity**
+- Click edit button on activity card
+- Modify activity details
+- Update project associations
+- System validates time fields and saves changes
+
+**Delete Activity**
+- Click delete button
+- Confirm deletion in modal
+- Activity removed from system
+
+**Auto-expand on Search**
+- When search returns 1-2 results, details automatically expand
+- Improves user experience for targeted searches
+
+## Data Model
+
+Activities are stored in the `Activity` entity:
+
+```typescript
+@Entity('actividades')
+export class Activity {
+  @PrimaryGeneratedColumn({ name: 'Id' })
+  id: number;
+
+  @Column({ name: 'Nombre' })
+  name: string;
+
+  @Column({ name: 'Lugar' })
+  place: string;
+
+  @Column({ name: 'HoraInicio', type: 'time' })
+  horaInicio: string;
+
+  @Column({ name: 'HoraFin', type: 'time' })
+  horaFin: string;
+
+  @Column({ name: 'DiaSemana' })
+  diaSemana: string;
+
+  @Column({ name: 'Icon', nullable: true })
+  icon: string;
+
+  @Column({ name: 'idMonitor', nullable: true })
+  idMonitor: number;
+
+  @ManyToOne(() => Usuarios)
+  @JoinColumn({ name: 'idMonitor' })
+  monitor: Usuarios;
+}
+```
+
+### Key Fields
+
+- **id**: Primary key, auto-generated
+- **name**: Activity name (e.g., "Yoga Class", "Board Meeting")
+- **place**: Location where activity takes place
+- **horaInicio/horaFin**: Time range in `HH:MM` format (type: time)
+- **diaSemana**: Day of the week (e.g., "Lunes", "Martes")
+- **icon**: Optional Material Symbols icon name for UI display
+- **idMonitor**: Foreign key to Usuarios table
+- **monitor**: Related Usuarios entity (monitor/instructor)
+
+<Tip>
+The `time` type for horaInicio and horaFin stores only the time portion without date information, perfect for recurring weekly schedules.
+</Tip>
+
+## API Endpoints
+
+All endpoints require JWT authentication with `monitor` or `admin` roles.
+
+### GET /activities
+
+Retrieve all activities with their associated monitor information.
+
+```typescript
+@Get()
+@Roles('monitor', 'admin')
+getActivitiesData()
+```
+
+**Response**: Array of Activity objects with populated monitor relations
+
+### POST /activities
+
+Create a new activity.
+
+```typescript
+@Post()
+@Roles('monitor', 'admin')
+create(@Body() createActivityDto: CreateActivityDto)
+```
+
+**Request Body** (CreateActivityDto):
+```typescript
+{
+  name: string,
+  place: string,
+  horaInicio: string,  // Format: "HH:MM"
+  horaFin: string,     // Format: "HH:MM"
+  diaSemana: string,
+  icon?: string,
+  idMonitor?: number,
+  projectIds?: number[]  // Array of project IDs to link
+}
+```
+
+**Response**: Created Activity object
+
+**Validation**:
+- `horaInicio` and `horaFin` are required
+- Times must be in valid format
+- Monitor must exist in Usuarios table
+
+### PUT /activities/:id
+
+Update an existing activity.
+
+```typescript
+@Put(':id')
+@Roles('monitor', 'admin')
+update(@Param('id') id: string, @Body() updateActivityDto: UpdateActivityDto)
+```
+
+**URL Parameters**:
+- `id`: Activity ID (number)
+
+**Request Body** (UpdateActivityDto): Same fields as CreateActivityDto, all optional
+
+**Response**: Updated Activity object
+
+### DELETE /activities/:id
+
+Delete an activity.
+
+```typescript
+@Delete(':id')
+@Roles('monitor', 'admin')
+remove(@Param('id') id: string)
+```
+
+**URL Parameters**:
+- `id`: Activity ID (number)
+
+**Response**: Deletion confirmation
+
+<Warning>
+Deleting an activity that is linked to projects may affect project activity counts and associations.
+</Warning>
+
+### GET /activities/Monitors
+
+Retrieve list of available monitors (users who can supervise activities).
+
+```typescript
+@Get('Monitors')
+@Roles('monitor', 'admin')
+getMonitors()
+```
+
+**Response**: Array of Usuarios with monitor capabilities
+
+### GET /activities/Projects
+
+Retrieve list of projects for activity association.
+
+```typescript
+@Get('Projects')
+@Roles('monitor', 'admin')
+getProjects()
+```
+
+**Response**: Array of available projects
+
+## Search Implementation
+
+The activity search uses intelligent scoring in Actividades.vue:
+
+```javascript
+const filteredActivities = computed(() => {
+  const query = searchQuery.value.toLowerCase().trim()
+  if (!query) return activities.value
+
+  const results = activities.value.map(activity => {
+    let score = 0
+    const fields = {
+      name: activity.name?.toString().toLowerCase() || '',
+      monitor: activity.monitor?.toString().toLowerCase() || '',
+      place: activity.place?.toString().toLowerCase() || '',
+      diaSemana: activity.diaSemana?.toString().toLowerCase() || ''
+    }
+
+    // Activity name is highest priority
+    if (fields.name === query) score += 100
+    else if (fields.name.startsWith(query)) score += 50
+    else if (fields.name.includes(query)) score += 10
+
+    // Monitor name is second priority
+    if (fields.monitor === query) score += 80
+    else if (fields.monitor.startsWith(query)) score += 40
+    else if (fields.monitor.includes(query)) score += 8
+
+    // Location and day provide additional context
+    if (fields.place.includes(query)) score += 5
+    if (fields.diaSemana.includes(query)) score += 5
+
+    return { activity, score }
+  }).filter(item => item.score > 0)
+
+  return results.sort((a, b) => b.score - a.score).map(item => item.activity)
+})
+```
+
+## Frontend Workflow Details
+
+### Creating an Activity
+
+The frontend implements validation and data transformation:
+
+```javascript
+const saveActivity = async (newActivity) => {
+  if (isSubmitting.value) return;
+  isSubmitting.value = true;
+  
+  try {
+    // Validate required time fields
+    if (!newActivity.horaInicio || !newActivity.horaFin) {
+      throw new Error('Debe seleccionar hora de inicio y fin');
+    }
+
+    const dataToSend = { ...newActivity };
+    
+    // Handle project association
+    if (!dataToSend.asociarProyecto) {
+      dataToSend.projectIds = [];
+    }
+    delete dataToSend.asociarProyecto;
+
+    await activityStore.addActivity(dataToSend);
+    showAddActivitiesModal.value = false;
+    formError.value = '';
+  } catch (error) {
+    const errMsg = error.response?.data?.message || 
+                   error.response?.data?.error || 
+                   error?.message || 
+                   'No se pudo guardar la actividad';
+    formError.value = Array.isArray(errMsg) ? errMsg.join(', ') : errMsg;
+  } finally {
+    isSubmitting.value = false;
+  }
+}
+```
+
+### Editing Activities
+
+When editing, the system pre-populates project associations:
+
+```javascript
+const editActivity = (activity) => {
+  editingActivity.value = {
+    ...activity,
+    projectIds: activity.proyectos ? activity.proyectos.map(p => p.id) : [],
+    asociarProyecto: activity.proyectos && activity.proyectos.length > 0
+  };
+  showEditModal.value = true
+}
+```
+
+## Use Cases
+
+### Weekly Activity Schedule
+
+1. Create activities for each day of the week
+2. Assign monitors to oversee each activity
+3. Set specific time slots (e.g., "Yoga: Lunes 10:00-11:30")
+4. Define location for each activity
+5. Members can view complete weekly schedule
+
+### Project-Linked Activities
+
+1. Create or edit an activity
+2. Enable project association (asociarProyecto)
+3. Select one or more projects from dropdown
+4. Activity appears in project's activity list
+5. Project tracks all linked activities automatically
+
+### Monitor Assignment
+
+1. Select monitor from Usuarios list when creating activity
+2. System stores idMonitor foreign key
+3. Monitor name displayed on activity cards
+4. Search by monitor name to find all their activities
+
+### Schedule Conflicts
+
+1. Search by day of week (e.g., "Lunes")
+2. View all activities for that day
+3. Check time slots to avoid conflicts
+4. Adjust times or locations as needed
+
+## Integration with Other Features
+
+- **Member Management**: Monitors are selected from the Usuarios table with monitor role
+- **Projects**: Activities can be associated with projects via `activityIds` field
+- **Configuration**: Activity data feeds into association statistics and reporting
+
+## Display Components
+
+The activity details are rendered using:
+
+```vue
+<DataDisplay
+  :items="[
+    { label: 'Lugar de la actividad', value: activity.place },
+    { label: 'Dia de la actividad', value: activity.diaSemana },
+    { label: 'Hora de inicio', value: activity.horaInicio },
+    { label: 'Hora de fin', value: activity.horaFin },
+    { label: 'Monitor', value: activity.monitor },
+    { label: 'Proyectos', value: activity.proyectos?.map(p => p.nombre).join(', ') }
+  ]"
+/>
+```
+
+<Tip>
+Use Material Symbols icons in the `icon` field to provide visual cues for different activity types (e.g., "sports_soccer" for sports activities, "library_books" for educational activities).
+</Tip>
+
+## Related Documentation
+
+- [Projects](/features/projects) - Learn how to link activities to projects
+- [Member Management](/features/member-management) - Understand monitor role assignment

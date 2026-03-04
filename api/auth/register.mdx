@@ -1,0 +1,199 @@
+---
+title: 'Register'
+description: 'Create a new user account'
+api: 'POST /auth/register'
+---
+
+## Description
+
+Creates a new user account in the system. After successful registration, a verification code is sent to the provided email address. The user must verify their email within 15 minutes before they can log in.
+
+<Warning>
+  This endpoint is protected by rate limiting (ThrottlerGuard) to prevent brute force attacks and mass registration.
+</Warning>
+
+## Request Body
+
+<ParamField body="nombre" type="string" required>
+  User's first name
+</ParamField>
+
+<ParamField body="apellidos" type="string" required>
+  User's last name
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password (will be hashed with bcrypt)
+</ParamField>
+
+<ParamField body="dni" type="string" required>
+  User's national identification number (DNI)
+</ParamField>
+
+<ParamField body="direccion" type="string" required>
+  User's street address
+</ParamField>
+
+<ParamField body="CP" type="string" required>
+  Postal code
+</ParamField>
+
+<ParamField body="provincia" type="string" required>
+  Province or state
+</ParamField>
+
+<ParamField body="poblacion" type="string" required>
+  City or town
+</ParamField>
+
+<ParamField body="pais" type="string" required>
+  Country
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  User's email address (must be valid email format)
+</ParamField>
+
+<ParamField body="telefono" type="string" required>
+  User's phone number
+</ParamField>
+
+<ParamField body="fechaalta" type="string" required>
+  Registration date (ISO 8601 date string)
+</ParamField>
+
+<ParamField body="fechabaja" type="string">
+  Account deactivation date (ISO 8601 date string, optional)
+</ParamField>
+
+<ParamField body="formadepago" type="string" required>
+  Payment method
+</ParamField>
+
+<ParamField body="cuota" type="number" required>
+  Membership fee amount
+</ParamField>
+
+<ParamField body="categoria" type="string" required>
+  User category
+</ParamField>
+
+<ParamField body="socio" type="string" required>
+  Membership status: `Socio` or `NoSocio`
+</ParamField>
+
+## Request Example
+
+<CodeGroup>
+
+```bash curl
+curl -X POST https://api.sociapp.com/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nombre": "Juan",
+    "apellidos": "García López",
+    "password": "SecurePassword123!",
+    "dni": "12345678A",
+    "direccion": "Calle Mayor 123",
+    "CP": "28001",
+    "provincia": "Madrid",
+    "poblacion": "Madrid",
+    "pais": "España",
+    "email": "juan.garcia@example.com",
+    "telefono": "+34600123456",
+    "fechaalta": "2026-03-04T00:00:00.000Z",
+    "formadepago": "Tarjeta",
+    "cuota": 50,
+    "categoria": "Senior",
+    "socio": "Socio"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/auth/register', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    nombre: 'Juan',
+    apellidos: 'García López',
+    password: 'SecurePassword123!',
+    dni: '12345678A',
+    direccion: 'Calle Mayor 123',
+    CP: '28001',
+    provincia: 'Madrid',
+    poblacion: 'Madrid',
+    pais: 'España',
+    email: 'juan.garcia@example.com',
+    telefono: '+34600123456',
+    fechaalta: '2026-03-04T00:00:00.000Z',
+    formadepago: 'Tarjeta',
+    cuota: 50,
+    categoria: 'Senior',
+    socio: 'Socio'
+  })
+});
+
+const data = await response.json();
+```
+
+</CodeGroup>
+
+## Response
+
+### Success Response
+
+<ResponseField name="message" type="string">
+  Confirmation message indicating successful registration and email verification requirement
+</ResponseField>
+
+<CodeGroup>
+
+```json 201 Created
+{
+  "message": "User registered successfully. Please check your email for verification code."
+}
+```
+
+</CodeGroup>
+
+### Error Responses
+
+<CodeGroup>
+
+```json 409 Conflict
+{
+  "statusCode": 409,
+  "message": "Email already exists",
+  "error": "Conflict"
+}
+```
+
+```json 400 Bad Request
+{
+  "statusCode": 400,
+  "message": [
+    "email must be an email",
+    "nombre must be a string"
+  ],
+  "error": "Bad Request"
+}
+```
+
+```json 429 Too Many Requests
+{
+  "statusCode": 429,
+  "message": "ThrottlerException: Too Many Requests"
+}
+```
+
+</CodeGroup>
+
+## Notes
+
+- The password is hashed using bcrypt with a salt round of 12 before storage
+- A 6-digit verification code is generated and sent to the user's email
+- The verification code expires after 15 minutes
+- If the user doesn't verify their email within the expiration period, the registration will be deleted when they attempt to log in
+- Rate limiting is applied to prevent abuse and mass registration attempts

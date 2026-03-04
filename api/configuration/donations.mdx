@@ -1,0 +1,405 @@
+---
+title: "Donations & Inheritances"
+description: "Manage donations and inheritances records (Donativos y Herencias)"
+---
+
+## List Donations
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.sociapp.com/configuracion/donativos \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/configuracion/donativos', {
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+const data = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+[
+  {
+    "idDonativo": 1,
+    "Nombre": "Fundación Benéfica",
+    "Direccion": "Calle Mayor 15",
+    "Poblacion": "Barcelona",
+    "CP": 8001,
+    "Pais": "España",
+    "Telefono": "+34 934567890",
+    "NIF": "G12345678",
+    "Email": "contacto@fundacion.org",
+    "Notas": "Donación anual recurrente",
+    "Tipo": "Donativo",
+    "idAsociacion": 1
+  },
+  {
+    "idDonativo": 2,
+    "Nombre": "María González",
+    "Direccion": "Avenida Libertad 42",
+    "Poblacion": "Valencia",
+    "CP": 46001,
+    "Pais": "España",
+    "Telefono": "+34 961234567",
+    "NIF": "12345678A",
+    "Email": "maria.gonzalez@example.com",
+    "Notas": "Herencia testamentaria 2023",
+    "Tipo": "Herencia",
+    "idAsociacion": 1
+  }
+]
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+GET /configuracion/donativos
+```
+
+### Authentication
+
+Requires JWT authentication token.
+
+### Response Fields
+
+<ResponseField name="idDonativo" type="number">
+  Donation record ID
+</ResponseField>
+
+<ResponseField name="Nombre" type="string" required>
+  Donor name (person or organization)
+</ResponseField>
+
+<ResponseField name="Direccion" type="string">
+  Street address
+</ResponseField>
+
+<ResponseField name="Poblacion" type="string">
+  City/town
+</ResponseField>
+
+<ResponseField name="CP" type="number">
+  Postal code
+</ResponseField>
+
+<ResponseField name="Pais" type="string">
+  Country
+</ResponseField>
+
+<ResponseField name="Telefono" type="string">
+  Contact phone number
+</ResponseField>
+
+<ResponseField name="NIF" type="string">
+  Tax identification number (NIF/CIF)
+</ResponseField>
+
+<ResponseField name="Email" type="string">
+  Contact email address
+</ResponseField>
+
+<ResponseField name="Notas" type="string">
+  Additional notes
+</ResponseField>
+
+<ResponseField name="Tipo" type="string" required>
+  Type: "Donativo" or "Herencia"
+</ResponseField>
+
+<ResponseField name="idAsociacion" type="number">
+  Associated organization ID
+</ResponseField>
+
+---
+
+## Add Donation
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.sociapp.com/configuracion/donativos \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Nombre": "Fundación Solidaria",
+    "Direccion": "Plaza España 10",
+    "Poblacion": "Sevilla",
+    "CP": 41001,
+    "Pais": "España",
+    "Telefono": "+34 954123456",
+    "NIF": "G87654321",
+    "Email": "info@fundacionsolidaria.org",
+    "Notas": "Colaboración para proyecto educativo",
+    "Tipo": "Donativo"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/configuracion/donativos', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    Nombre: 'Fundación Solidaria',
+    Direccion: 'Plaza España 10',
+    Poblacion: 'Sevilla',
+    CP: 41001,
+    Pais: 'España',
+    Telefono: '+34 954123456',
+    NIF: 'G87654321',
+    Email: 'info@fundacionsolidaria.org',
+    Notas: 'Colaboración para proyecto educativo',
+    Tipo: 'Donativo'
+  })
+});
+const data = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "idDonativo": 3,
+  "Nombre": "Fundación Solidaria",
+  "Direccion": "Plaza España 10",
+  "Poblacion": "Sevilla",
+  "CP": 41001,
+  "Pais": "España",
+  "Telefono": "+34 954123456",
+  "NIF": "G87654321",
+  "Email": "info@fundacionsolidaria.org",
+  "Notas": "Colaboración para proyecto educativo",
+  "Tipo": "Donativo"
+}
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+POST /configuracion/donativos
+```
+
+### Authentication
+
+Requires JWT authentication token.
+
+### Request Body
+
+<ParamField body="Nombre" type="string" required>
+  Donor name (person or organization) - required
+</ParamField>
+
+<ParamField body="Tipo" type="string" required>
+  Type of record - required. Must be either "Donativo" or "Herencia"
+</ParamField>
+
+<ParamField body="Direccion" type="string">
+  Street address
+</ParamField>
+
+<ParamField body="Poblacion" type="string">
+  City/town
+</ParamField>
+
+<ParamField body="CP" type="number">
+  Postal code
+</ParamField>
+
+<ParamField body="Pais" type="string">
+  Country
+</ParamField>
+
+<ParamField body="Telefono" type="string">
+  Contact phone number
+</ParamField>
+
+<ParamField body="NIF" type="string">
+  Tax identification number (NIF/CIF)
+</ParamField>
+
+<ParamField body="Email" type="string">
+  Contact email address (must be valid email format)
+</ParamField>
+
+<ParamField body="Notas" type="string">
+  Additional notes or comments
+</ParamField>
+
+---
+
+## Update Donation
+
+<RequestExample>
+```bash cURL
+curl -X PUT https://api.sociapp.com/configuracion/donativos/3 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Nombre": "Fundación Solidaria Internacional",
+    "Direccion": "Plaza España 10",
+    "Poblacion": "Sevilla",
+    "CP": 41001,
+    "Pais": "España",
+    "Telefono": "+34 954123456",
+    "NIF": "G87654321",
+    "Email": "info@fundacionsolidaria.org",
+    "Notas": "Colaboración ampliada a varios proyectos",
+    "Tipo": "Donativo"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/configuracion/donativos/3', {
+  method: 'PUT',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    Nombre: 'Fundación Solidaria Internacional',
+    Notas: 'Colaboración ampliada a varios proyectos',
+    Tipo: 'Donativo'
+  })
+});
+const data = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "idDonativo": 3,
+  "Nombre": "Fundación Solidaria Internacional",
+  "Direccion": "Plaza España 10",
+  "Poblacion": "Sevilla",
+  "CP": 41001,
+  "Pais": "España",
+  "Telefono": "+34 954123456",
+  "NIF": "G87654321",
+  "Email": "info@fundacionsolidaria.org",
+  "Notas": "Colaboración ampliada a varios proyectos",
+  "Tipo": "Donativo"
+}
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+PUT /configuracion/donativos/:id
+```
+
+### Authentication
+
+Requires JWT authentication token.
+
+### Path Parameters
+
+<ParamField path="id" type="number" required>
+  Donation record ID
+</ParamField>
+
+### Request Body
+
+All fields are optional for update (partial update supported).
+
+<ParamField body="Nombre" type="string">
+  Donor name
+</ParamField>
+
+<ParamField body="Tipo" type="string">
+  Type: "Donativo" or "Herencia"
+</ParamField>
+
+<ParamField body="Direccion" type="string">
+  Street address
+</ParamField>
+
+<ParamField body="Poblacion" type="string">
+  City/town
+</ParamField>
+
+<ParamField body="CP" type="number">
+  Postal code
+</ParamField>
+
+<ParamField body="Pais" type="string">
+  Country
+</ParamField>
+
+<ParamField body="Telefono" type="string">
+  Contact phone number
+</ParamField>
+
+<ParamField body="NIF" type="string">
+  Tax identification number
+</ParamField>
+
+<ParamField body="Email" type="string">
+  Contact email address
+</ParamField>
+
+<ParamField body="Notas" type="string">
+  Additional notes
+</ParamField>
+
+---
+
+## Delete Donation
+
+<RequestExample>
+```bash cURL
+curl -X DELETE https://api.sociapp.com/configuracion/donativos/3 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/configuracion/donativos/3', {
+  method: 'DELETE',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "message": "Donation record deleted successfully"
+}
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+DELETE /configuracion/donativos/:id
+```
+
+### Authentication
+
+Requires JWT authentication token.
+
+### Path Parameters
+
+<ParamField path="id" type="number" required>
+  Donation record ID to delete
+</ParamField>
+
+---
+
+## Donation Types
+
+The `Tipo` field accepts the following enum values:
+
+- **Donativo**: Regular donation from an individual or organization
+- **Herencia**: Inheritance or bequest

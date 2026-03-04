@@ -1,0 +1,159 @@
+---
+title: 'Get Activities'
+api: 'GET /activities'
+---
+
+Retrieves all activities with their associated monitors and projects.
+
+## Authentication
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication
+</ParamField>
+
+**Required Roles:** `monitor`, `admin`
+
+## Response
+
+<ResponseField name="activities" type="array" required>
+  Array of activity objects
+  
+  <ResponseField name="id" type="number">
+    Unique identifier for the activity
+  </ResponseField>
+  
+  <ResponseField name="name" type="string">
+    Name of the activity
+  </ResponseField>
+  
+  <ResponseField name="place" type="string">
+    Location where the activity takes place
+  </ResponseField>
+  
+  <ResponseField name="horaInicio" type="string">
+    Start time in HH:MM format
+  </ResponseField>
+  
+  <ResponseField name="horaFin" type="string">
+    End time in HH:MM format
+  </ResponseField>
+  
+  <ResponseField name="diaSemana" type="string">
+    Day of the week
+  </ResponseField>
+  
+  <ResponseField name="icon" type="string">
+    Icon identifier for the activity
+  </ResponseField>
+  
+  <ResponseField name="idMonitor" type="number">
+    ID of the assigned monitor
+  </ResponseField>
+  
+  <ResponseField name="monitor" type="string">
+    Name of the assigned monitor
+  </ResponseField>
+  
+  <ResponseField name="proyectos" type="array">
+    Array of associated projects
+    
+    <ResponseField name="id" type="number">
+      Project ID
+    </ResponseField>
+    
+    <ResponseField name="nombre" type="string">
+      Project name
+    </ResponseField>
+  </ResponseField>
+</ResponseField>
+
+## Example Request
+
+```bash
+curl -X GET https://api.sociapp.com/activities \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+## Example Response
+
+```json
+{
+  "activities": [
+    {
+      "id": 1,
+      "name": "Fútbol",
+      "place": "Campo deportivo",
+      "horaInicio": "16:00",
+      "horaFin": "18:00",
+      "diaSemana": "Lunes",
+      "icon": "soccer",
+      "idMonitor": 5,
+      "monitor": "Juan Pérez",
+      "proyectos": [
+        {
+          "id": 1,
+          "nombre": "Deportes de equipo"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Pintura",
+      "place": "Sala de arte",
+      "horaInicio": "10:00",
+      "horaFin": "12:00",
+      "diaSemana": "Miércoles",
+      "icon": "paint",
+      "idMonitor": 8,
+      "monitor": "María García",
+      "proyectos": [
+        {
+          "id": 2,
+          "nombre": "Arte y creatividad"
+        },
+        {
+          "id": 3,
+          "nombre": "Expresión artística"
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Error Responses
+
+<ResponseField name="statusCode" type="number">
+  HTTP status code
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Error message
+</ResponseField>
+
+### 401 Unauthorized
+
+```json
+{
+  "statusCode": 401,
+  "message": "Unauthorized"
+}
+```
+
+### 403 Forbidden
+
+```json
+{
+  "statusCode": 403,
+  "message": "Forbidden resource"
+}
+```
+
+### 500 Internal Server Error
+
+```json
+{
+  "statusCode": 500,
+  "message": "Failed to fetch activities data"
+}
+```

@@ -1,0 +1,178 @@
+---
+title: "Association Data"
+description: "Manage association basic information and configuration"
+---
+
+## Get Association Data
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.sociapp.com/configuracion/datos \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/configuracion/datos', {
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+const data = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "Nombre": "Asociación de Vecinos del Barrio",
+  "CIF": "G12345678",
+  "Direccion": "Calle Principal 123",
+  "CP": 28001,
+  "Telefono": "+34 912345678",
+  "Email": "info@asociacion.com",
+  "Web": "https://asociacion.com"
+}
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+GET /configuracion/datos
+```
+
+### Authentication
+
+Requires JWT authentication token.
+
+### Response Fields
+
+<ResponseField name="Nombre" type="string" required>
+  Association name
+</ResponseField>
+
+<ResponseField name="CIF" type="string" required>
+  Tax identification number (CIF)
+</ResponseField>
+
+<ResponseField name="Direccion" type="string">
+  Street address
+</ResponseField>
+
+<ResponseField name="CP" type="number">
+  Postal code
+</ResponseField>
+
+<ResponseField name="Telefono" type="string">
+  Contact phone number
+</ResponseField>
+
+<ResponseField name="Email" type="string">
+  Contact email address
+</ResponseField>
+
+<ResponseField name="Web" type="string">
+  Website URL
+</ResponseField>
+
+---
+
+## Update Association Data
+
+<RequestExample>
+```bash cURL
+curl -X PUT https://api.sociapp.com/configuracion/datos \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Nombre": "Asociación de Vecinos del Barrio",
+    "CIF": "G12345678",
+    "Direccion": "Calle Principal 123",
+    "CP": 28001,
+    "Telefono": "+34 912345678",
+    "Email": "info@asociacion.com",
+    "Web": "https://asociacion.com"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/configuracion/datos', {
+  method: 'PUT',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    Nombre: 'Asociación de Vecinos del Barrio',
+    CIF: 'G12345678',
+    Direccion: 'Calle Principal 123',
+    CP: 28001,
+    Telefono: '+34 912345678',
+    Email: 'info@asociacion.com',
+    Web: 'https://asociacion.com'
+  })
+});
+const data = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "Nombre": "Asociación de Vecinos del Barrio",
+  "CIF": "G12345678",
+  "Direccion": "Calle Principal 123",
+  "CP": 28001,
+  "Telefono": "+34 912345678",
+  "Email": "info@asociacion.com",
+  "Web": "https://asociacion.com"
+}
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+PUT /configuracion/datos
+```
+
+### Authentication
+
+Requires JWT authentication token.
+
+### Request Body
+
+<ParamField body="Nombre" type="string" required>
+  Association name (required)
+</ParamField>
+
+<ParamField body="CIF" type="string" required>
+  Tax identification number (required)
+</ParamField>
+
+<ParamField body="Direccion" type="string">
+  Street address
+</ParamField>
+
+<ParamField body="CP" type="number">
+  Postal code
+</ParamField>
+
+<ParamField body="Telefono" type="string">
+  Contact phone number
+</ParamField>
+
+<ParamField body="Email" type="string">
+  Contact email address
+</ParamField>
+
+<ParamField body="Web" type="string">
+  Website URL
+</ParamField>
+
+### Notes
+
+- This endpoint performs an upsert operation (insert or update)
+- If no association data exists, it creates a new record
+- If association data already exists, it updates the existing record
+- `Nombre` and `CIF` are required fields and will return a 400 error if missing

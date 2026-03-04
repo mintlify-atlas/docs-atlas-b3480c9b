@@ -1,0 +1,154 @@
+---
+title: "Send to All Members"
+description: "Send emails to all association members (socios)"
+---
+
+## Send Email to All Members
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.sociapp.com/mail/send-all \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "subject": "Monthly Newsletter",
+    "message": "<h1>Monthly Update</h1><p>Dear members, here is our monthly newsletter...</p>"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/mail/send-all', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    subject: 'Monthly Newsletter',
+    message: '<h1>Monthly Update</h1><p>Dear members, here is our monthly newsletter...</p>'
+  })
+});
+const result = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "success": true,
+  "message": "Email sent to all members successfully",
+  "recipients": 156,
+  "stats": {
+    "total": 156,
+    "sent": 156,
+    "failed": 0
+  }
+}
+```
+
+```json 400 Bad Request
+{
+  "statusCode": 400,
+  "message": "Subject and message are required",
+  "error": "Bad Request"
+}
+```
+
+```json 403 Forbidden
+{
+  "statusCode": 403,
+  "message": "Only administrators can send emails to all members",
+  "error": "Forbidden"
+}
+```
+
+```json 500 Internal Server Error
+{
+  "statusCode": 500,
+  "message": "Failed to send emails",
+  "error": "Internal Server Error",
+  "details": "SMTP connection failed"
+}
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+POST /mail/send-all
+```
+
+### Authentication
+
+Requires JWT authentication token with `admin` role.
+
+**Required Role:** `admin` (only administrators can send to all members)
+
+### Request Body
+
+<ParamField body="subject" type="string" required>
+  Email subject line for the mass email
+</ParamField>
+
+<ParamField body="message" type="string" required>
+  Email message body. Supports HTML formatting.
+  
+  **Example:**
+  ```html
+  <h1>Important Announcement</h1>
+  <p>Dear members,</p>
+  <p>We are pleased to announce...</p>
+  <ul>
+    <li>Point 1</li>
+    <li>Point 2</li>
+  </ul>
+  ```
+</ParamField>
+
+### Response Fields
+
+<ResponseField name="success" type="boolean">
+  Indicates whether the mass email operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Status message describing the result
+</ResponseField>
+
+<ResponseField name="recipients" type="number">
+  Total number of members (socios) the email was sent to
+</ResponseField>
+
+<ResponseField name="stats" type="object">
+  Detailed statistics about the email sending operation
+  
+  <ResponseField name="stats.total" type="number">
+    Total number of members in the database
+  </ResponseField>
+  
+  <ResponseField name="stats.sent" type="number">
+    Number of emails successfully sent
+  </ResponseField>
+  
+  <ResponseField name="stats.failed" type="number">
+    Number of emails that failed to send
+  </ResponseField>
+</ResponseField>
+
+### Notes
+
+- **Admin Only:** Only users with the `admin` role can use this endpoint
+- **Target Audience:** Sends emails to all users marked as members (socios) in the database
+- **HTML Support:** The message body supports full HTML formatting
+- **Batch Processing:** Emails are sent in batches to avoid overwhelming the SMTP server
+- **Error Handling:** If some emails fail, the operation continues and reports statistics
+- **Database Query:** Recipients are fetched from the `usuarios` table where `socio = 1`
+- **Performance:** For large member lists, this operation may take some time to complete
+
+### Best Practices
+
+1. **Test First:** Send a test email using `/mail/send` before sending to all members
+2. **HTML Validation:** Ensure your HTML message is well-formed
+3. **Subject Lines:** Keep subject lines clear and concise (50-60 characters recommended)
+4. **Timing:** Consider sending mass emails during off-peak hours
+5. **Content:** Include unsubscribe information if required by local regulations

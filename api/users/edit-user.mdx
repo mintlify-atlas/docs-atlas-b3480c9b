@@ -1,0 +1,248 @@
+---
+title: "Edit User"
+api: "POST /users/edit"
+description: "Update an existing user's information"
+---
+
+## Authentication
+
+This endpoint requires JWT authentication and role-based authorization.
+
+**Required Guards:**
+- `JwtAuthGuard` - Valid JWT token required
+- `RolesGuard` - User must have one of the allowed roles
+
+**Allowed Roles:**
+- `monitor`
+- `admin`
+
+## Request Body
+
+<ParamField body="dni" type="string" required>
+  National identification number (DNI) - Used to identify which user to update
+</ParamField>
+
+<ParamField body="nombre" type="string" required>
+  User's first name
+</ParamField>
+
+<ParamField body="apellidos" type="string" required>
+  User's last name
+</ParamField>
+
+<ParamField body="direccion" type="string" required>
+  Street address
+</ParamField>
+
+<ParamField body="CP" type="string" required>
+  Postal code
+</ParamField>
+
+<ParamField body="provincia" type="string" required>
+  Province
+</ParamField>
+
+<ParamField body="poblacion" type="string" required>
+  City/town
+</ParamField>
+
+<ParamField body="pais" type="string" required>
+  Country
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  User's email address (must be valid email format)
+</ParamField>
+
+<ParamField body="telefono" type="string" required>
+  Phone number
+</ParamField>
+
+<ParamField body="fechaalta" type="string" required>
+  Registration date in ISO 8601 date format (YYYY-MM-DD)
+</ParamField>
+
+<ParamField body="fechabaja" type="string">
+  Deactivation date in ISO 8601 date format (YYYY-MM-DD). Optional field.
+</ParamField>
+
+<ParamField body="formadepago" type="string" required>
+  Payment method (e.g., "Transferencia", "Tarjeta", "Efectivo")
+</ParamField>
+
+<ParamField body="cuota" type="number" required>
+  Membership fee amount
+</ParamField>
+
+<ParamField body="categoria" type="string" required>
+  User category (e.g., "monitor", "admin", "socio")
+</ParamField>
+
+<ParamField body="socio" type="string" required>
+  Membership status - Must be either "Socio" or "NoSocio". Also accepts numeric values: 0 for "NoSocio", 1 for "Socio"
+</ParamField>
+
+## Response
+
+Returns the updated user object with all fields from the database entity.
+
+<ResponseField name="IdUsuario" type="number" required>
+  Unique user identifier
+</ResponseField>
+
+<ResponseField name="nombre" type="string" required>
+  User's first name
+</ResponseField>
+
+<ResponseField name="apellidos" type="string" required>
+  User's last name
+</ResponseField>
+
+<ResponseField name="password" type="string" required>
+  Hashed password (unchanged unless explicitly updated)
+</ResponseField>
+
+<ResponseField name="dni" type="string" required>
+  National identification number
+</ResponseField>
+
+<ResponseField name="direccion" type="string" required>
+  Street address
+</ResponseField>
+
+<ResponseField name="CP" type="string" required>
+  Postal code
+</ResponseField>
+
+<ResponseField name="provincia" type="string" required>
+  Province
+</ResponseField>
+
+<ResponseField name="poblacion" type="string" required>
+  City/town
+</ResponseField>
+
+<ResponseField name="pais" type="string" required>
+  Country
+</ResponseField>
+
+<ResponseField name="email" type="string" required>
+  User's email address
+</ResponseField>
+
+<ResponseField name="telefono" type="string" required>
+  Phone number
+</ResponseField>
+
+<ResponseField name="fechaalta" type="date" required>
+  Registration date
+</ResponseField>
+
+<ResponseField name="fechabaja" type="date">
+  Deactivation date (nullable)
+</ResponseField>
+
+<ResponseField name="formadepago" type="string" required>
+  Payment method
+</ResponseField>
+
+<ResponseField name="cuota" type="number" required>
+  Membership fee amount
+</ResponseField>
+
+<ResponseField name="categoria" type="string" required>
+  User category
+</ResponseField>
+
+<ResponseField name="socio" type="string" required>
+  Membership status - "Socio" or "NoSocio"
+</ResponseField>
+
+<ResponseField name="isVerified" type="boolean" required>
+  Email verification status
+</ResponseField>
+
+<ResponseField name="verificationCode" type="string">
+  Email verification code (nullable)
+</ResponseField>
+
+<ResponseField name="verificationExpires" type="timestamp">
+  Verification code expiration (nullable)
+</ResponseField>
+
+## Example Request
+
+```bash
+curl -X POST https://api.sociapp.com/users/edit \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dni": "45678912C",
+    "nombre": "María",
+    "apellidos": "Rodríguez García",
+    "direccion": "Calle Sol 89",
+    "CP": "46002",
+    "provincia": "Valencia",
+    "poblacion": "Valencia",
+    "pais": "España",
+    "email": "maria.rodriguez.new@example.com",
+    "telefono": "633456789",
+    "fechaalta": "2024-03-15",
+    "fechabaja": null,
+    "formadepago": "Tarjeta",
+    "cuota": 30.00,
+    "categoria": "socio",
+    "socio": "Socio"
+  }'
+```
+
+## Example Response
+
+```json
+{
+  "IdUsuario": 15,
+  "nombre": "María",
+  "apellidos": "Rodríguez García",
+  "password": "$2b$12$abcdefghijklmnopqrstuvwxyz1234567890ABCDEFGH",
+  "dni": "45678912C",
+  "direccion": "Calle Sol 89",
+  "CP": "46002",
+  "provincia": "Valencia",
+  "poblacion": "Valencia",
+  "pais": "España",
+  "email": "maria.rodriguez.new@example.com",
+  "telefono": "633456789",
+  "fechaalta": "2024-03-15",
+  "fechabaja": null,
+  "formadepago": "Tarjeta",
+  "cuota": 30.00,
+  "categoria": "socio",
+  "socio": "Socio",
+  "isVerified": true,
+  "verificationCode": null,
+  "verificationExpires": null
+}
+```
+
+## Error Responses
+
+### User Not Found
+
+If no user exists with the provided DNI:
+
+```json
+{
+  "statusCode": 500,
+  "message": "User not found"
+}
+```
+
+## Notes
+
+- The user is identified by the `dni` field - this is the primary lookup key
+- All fields in the request body are merged with the existing user data
+- The password field is not included in EditUserDto, so passwords cannot be changed through this endpoint
+- The `socio` field accepts both string values ("Socio"/"NoSocio") and numeric values (1/0)
+- Email format is validated
+- Dates must be in ISO 8601 format (YYYY-MM-DD)
+- If the user is not found, an error is thrown

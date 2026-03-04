@@ -1,0 +1,373 @@
+---
+title: User Roles & Access Control
+description: Understanding role-based access control (RBAC) in SociApp
+---
+
+SociApp implements role-based access control using the `categoria` field in the user entity. Different user categories have different levels of access to application features.
+
+## Available User Categories
+
+User roles are defined in the `categoria` field of the user entity:
+
+```typescript
+// backend/src/users/user.entity.ts:54
+@Column()
+categoria: string;
+```
+
+The application supports these categories:
+
+<CardGroup cols={2}>
+  <Card title="Admin / Administrador" icon="user-shield">
+    Full access to all features including user management, statistics, and system configuration
+  </Card>
+  
+  <Card title="Monitor" icon="eye">
+    Access to dashboard statistics and monitoring features
+  </Card>
+  
+  <Card title="Trabajador" icon="briefcase">
+    Worker role with limited access to specific features
+  </Card>
+  
+  <Card title="Usuario" icon="user">
+    Standard user with basic access
+  </Card>
+</CardGroup>
+
+## User Entity Structure
+
+The complete user entity includes role and membership information:
+
+```typescript
+// backend/src/users/user.entity.ts:1
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+
+@Entity('usuarios')
+export class Usuarios {
+  @PrimaryGeneratedColumn()
+  IdUsuario: number;
+
+  @Column()
+  nombre: string;
+
+  @Column()
+  apellidos: string;
+
+  @Column()
+  password: string;
+
+  @Column()
+  dni: string;
+
+  @Column()
+  direccion: string;
+
+  @Column({ name: 'CP' })
+  CP: string;
+
+  @Column()
+  provincia: string;
+
+  @Column()
+  poblacion: string;
+
+  @Column()
+  pais: string;
+
+  @Column()
+  email: string;
+
+  @Column()
+  telefono: string;
+
+  @Column({ type: 'date' })
+  fechaalta: Date;
+
+  @Column({ type: 'date', nullable: true })
+  fechabaja: Date;
+
+  @Column()
+  formadepago: string;
+
+  @Column({ type: 'decimal' })
+  cuota: number;
+
+  @Column()
+  categoria: string;
+
+  @Column({
+    type: 'enum',
+    enum: ['Socio', 'NoSocio'],
+    default: 'NoSocio'
+  })
+  socio: 'Socio' | 'NoSocio';
+
+  @Column({ default: false })
+  isVerified: boolean;
+
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  verificationCode: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  verificationExpires: Date | null;
+}
+```
+
+## Membership Status
+
+In addition to categories, users have a membership status:
+
+```typescript
+// backend/src/users/user.entity.ts:56
+@Column({
+  type: 'enum',
+  enum: ['Socio', 'NoSocio'],
+  default: 'NoSocio'
+})
+socio: 'Socio' | 'NoSocio';
+```
+
+- **Socio**: Full members with active membership
+- **NoSocio**: Non-members or inactive memberships
+
+## Role-Based Access Control
+
+### The Roles Decorator
+
+Use the `@Roles()` decorator to specify which categories can access an endpoint:
+
+```typescript
+// backend/src/auth/roles.decorator.ts:1
+import { SetMetadata } from '@nestjs/common';
+
+export const Roles = (...roles: string[]) => SetMetadata('roles', roles);
+```
+
+### The Roles Guard
+
+The `RolesGuard` enforces role-based access control:
+
+```typescript
+// backend/src/auth/roles.guard.ts:1
+import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+
+@Injectable()
+export class RolesGuard implements CanActivate {
+  constructor(private reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const requiredRoles = this.reflector.get<string[]>('roles', context.getHandler());
+    if (!requiredRoles) {
+      return true;
+    }
+    const { user } = context.switchToHttp().getRequest();
+    if (!user) {
+      return false;
+    }
+    // Verify that the user has the required category
+    const userCategory = user.categoria?.toLowerCase() || '';
+    
+    // Normalize different variants of administrator
+    const normalizedCategory = userCategory === 'administrador' ? 'admin' : userCategory;
+    
+    // Check if the user has any of the required roles
+    const hasAccess = requiredRoles.some((role) => {
+      const normalizedRole = role.toLowerCase();
+      return normalizedCategory === normalizedRole || 
+             (normalizedRole === 'admin' && normalizedCategory === 'administrador') ||
+             (normalizedCategory === 'admin' && normalizedRole === 'administrador');
+    });
+    
+    return hasAccess;
+  }
+}
+```
+
+### Key Features
+
+<AccordionGroup>
+  <Accordion title="Case-Insensitive Matching">
+    The guard normalizes both user categories and required roles to lowercase for comparison.
+  </Accordion>
+
+  <Accordion title="Admin Alias Support">
+    The guard treats 'admin' and 'administrador' as equivalent, supporting both Spanish and English naming conventions.
+  </Accordion>
+
+  <Accordion title="Multiple Role Support">
+    Endpoints can require multiple roles using the `some()` method - users need to match at least one.
+  </Accordion>
+</AccordionGroup>
+
+## Protecting Endpoints
+
+### Single Role Protection
+
+Protect an endpoint for a single role:
+
+```typescript
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+
+@Controller('admin')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class AdminController {
+  @Get('dashboard')
+  @Roles('admin')
+  getDashboard() {
+    return { message: 'Admin dashboard' };
+  }
+}
+```
+
+### Multiple Role Protection
+
+Allow multiple roles to access an endpoint:
+
+```typescript
+// backend/src/stats/stats.controller.ts:15
+@Get()
+@Roles('monitor', 'admin')
+@CacheKey('dashboard_stats')
+@CacheTTL(300000) // 5 minutes
+getStats() {
+  return this.statsService.getDashboardStats();
+}
+```
+
+Both `monitor` and `admin` users can access statistics.
+
+### Controller-Level Protection
+
+Apply guards at the controller level:
+
+```typescript
+// backend/src/stats/stats.controller.ts:9
+@Controller('stats')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@UseInterceptors(CacheInterceptor)
+export class StatsController {
+  // All routes require authentication
+}
+```
+
+## How to Assign Roles
+
+### During Registration
+
+Roles can be assigned during user registration:
+
+```typescript
+const userData = {
+  ...dto,
+  categoria: 'usuario', // Default category
+  socio: 'NoSocio',    // Default membership status
+  // ... other fields
+};
+
+const user = await this.usersService.create(userData);
+```
+
+### Updating User Roles
+
+Update a user's category through an admin endpoint:
+
+```typescript
+@Patch(':id/role')
+@Roles('admin')
+async updateUserRole(
+  @Param('id') id: number,
+  @Body() dto: { categoria: string }
+) {
+  return this.usersService.updateCategory(id, dto.categoria);
+}
+```
+
+## Guard Execution Order
+
+<Warning>
+  Always apply guards in the correct order: `JwtAuthGuard` first, then `RolesGuard`.
+</Warning>
+
+```typescript
+@UseGuards(JwtAuthGuard, RolesGuard) // Correct order
+```
+
+The `JwtAuthGuard` authenticates the user and attaches the user object to the request. The `RolesGuard` then checks the user's category against the required roles.
+
+## Accessing User Data in Controllers
+
+Access the authenticated user's data in route handlers:
+
+```typescript
+@Get('profile')
+@UseGuards(JwtAuthGuard)
+getProfile(@Req() req: Request) {
+  const user = req.user as any;
+  console.log('User category:', user.categoria);
+  console.log('Membership status:', user.socio);
+  return user;
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Principle of Least Privilege" icon="lock">
+    Assign the minimum role necessary for users to perform their tasks.
+  </Card>
+
+  <Card title="Consistent Naming" icon="tags">
+    Use consistent category names across your application (e.g., 'admin' vs 'administrador').
+  </Card>
+
+  <Card title="Guard Chaining" icon="link">
+    Always chain `JwtAuthGuard` before `RolesGuard` to ensure proper authentication.
+  </Card>
+
+  <Card title="Audit Logging" icon="clipboard-list">
+    Log role changes and access attempts for security auditing.
+  </Card>
+</CardGroup>
+
+## Common Patterns
+
+### Public Endpoints
+
+Endpoints without guards are public:
+
+```typescript
+@Get('public-info')
+getPublicInfo() {
+  return { message: 'This is public' };
+}
+```
+
+### Authenticated Only
+
+Require authentication without role restrictions:
+
+```typescript
+@Get('profile')
+@UseGuards(JwtAuthGuard)
+getProfile() {
+  return { message: 'Authenticated users only' };
+}
+```
+
+### Role-Based Access
+
+Require specific roles:
+
+```typescript
+@Get('stats')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin', 'monitor')
+getStats() {
+  return { message: 'Admin or monitor access' };
+}
+```

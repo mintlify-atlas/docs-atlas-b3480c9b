@@ -1,0 +1,220 @@
+---
+title: 'Update Activity'
+api: 'PUT /activities/{id}'
+---
+
+Updates an existing activity by ID. All fields are optional and only provided fields will be updated.
+
+## Authentication
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication
+</ParamField>
+
+**Required Roles:** `monitor`, `admin`
+
+## Path Parameters
+
+<ParamField path="id" type="number" required>
+  The unique identifier of the activity to update
+</ParamField>
+
+## Request Body
+
+All fields are optional. Only include fields you want to update.
+
+<ParamField body="name" type="string">
+  Name of the activity
+</ParamField>
+
+<ParamField body="place" type="string">
+  Location where the activity takes place
+</ParamField>
+
+<ParamField body="horaInicio" type="string">
+  Start time in HH:MM or HH:MM:SS format. Must be before horaFin.
+</ParamField>
+
+<ParamField body="horaFin" type="string">
+  End time in HH:MM or HH:MM:SS format. Must be after horaInicio.
+</ParamField>
+
+<ParamField body="diaSemana" type="string">
+  Day of the week when the activity occurs
+</ParamField>
+
+<ParamField body="idMonitor" type="number">
+  ID of the monitor assigned to this activity
+</ParamField>
+
+<ParamField body="projectIds" type="number[]">
+  Array of project IDs to associate with this activity. This replaces all existing associations.
+</ParamField>
+
+<ParamField body="icon" type="string">
+  Icon identifier for the activity
+</ParamField>
+
+## Response
+
+<ResponseField name="id" type="number">
+  Unique identifier for the activity
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Name of the activity
+</ResponseField>
+
+<ResponseField name="place" type="string">
+  Location where the activity takes place
+</ResponseField>
+
+<ResponseField name="horaInicio" type="string">
+  Start time in HH:MM format
+</ResponseField>
+
+<ResponseField name="horaFin" type="string">
+  End time in HH:MM format
+</ResponseField>
+
+<ResponseField name="diaSemana" type="string">
+  Day of the week
+</ResponseField>
+
+<ResponseField name="icon" type="string">
+  Icon identifier for the activity
+</ResponseField>
+
+<ResponseField name="idMonitor" type="number">
+  ID of the assigned monitor
+</ResponseField>
+
+<ResponseField name="monitor" type="string">
+  Name of the assigned monitor
+</ResponseField>
+
+<ResponseField name="proyectos" type="array">
+  Array of associated projects
+  
+  <ResponseField name="id" type="number">
+    Project ID
+  </ResponseField>
+  
+  <ResponseField name="nombre" type="string">
+    Project name
+  </ResponseField>
+</ResponseField>
+
+## Example Request
+
+```bash
+curl -X PUT https://api.sociapp.com/activities/10 \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "place": "Nuevo campo deportivo",
+    "horaInicio": "17:00",
+    "horaFin": "19:00",
+    "projectIds": [1, 2, 3]
+  }'
+```
+
+## Example Response
+
+```json
+{
+  "id": 10,
+  "name": "Fútbol",
+  "place": "Nuevo campo deportivo",
+  "horaInicio": "17:00",
+  "horaFin": "19:00",
+  "diaSemana": "Lunes",
+  "icon": "soccer",
+  "idMonitor": 5,
+  "monitor": "Juan Pérez",
+  "proyectos": [
+    {
+      "id": 1,
+      "nombre": "Deportes de equipo"
+    },
+    {
+      "id": 2,
+      "nombre": "Arte y creatividad"
+    },
+    {
+      "id": 3,
+      "nombre": "Actividades al aire libre"
+    }
+  ]
+}
+```
+
+## Project Association Behavior
+
+When updating `projectIds`:
+- The activity is **removed** from projects not in the new list
+- The activity is **added** to projects in the new list that didn't have it
+- The activity remains in projects that are in both the old and new lists
+
+This means `projectIds` replaces the entire set of associated projects.
+
+## Validation Rules
+
+- If both `horaInicio` and `horaFin` are present (either existing or updated), `horaInicio` must be before `horaFin`
+- Time format must be HH:MM or HH:MM:SS with valid hours (00-23) and minutes (00-59)
+
+## Error Responses
+
+### 400 Bad Request - Invalid Time Range
+
+```json
+{
+  "statusCode": 400,
+  "message": "La hora de inicio debe ser anterior a la hora de fin"
+}
+```
+
+### 400 Bad Request - Invalid Time Format
+
+```json
+{
+  "statusCode": 400,
+  "message": "Formato de hora inválido"
+}
+```
+
+### 401 Unauthorized
+
+```json
+{
+  "statusCode": 401,
+  "message": "Unauthorized"
+}
+```
+
+### 403 Forbidden
+
+```json
+{
+  "statusCode": 403,
+  "message": "Forbidden resource"
+}
+```
+
+### 404 Not Found
+
+```json
+{
+  "statusCode": 404,
+  "message": "Actividad no encontrada"
+}
+```
+
+### 500 Internal Server Error
+
+```json
+{
+  "statusCode": 500,
+  "message": "Failed to update activity"
+}
+```

@@ -1,0 +1,98 @@
+---
+title: Introduction
+description: A comprehensive platform for managing neighborhood associations and non-profit organizations
+---
+
+# Introduction to SociApp
+
+SociApp is an integral solution designed to digitize and centralize the administration of non-profit associations and foundations. It provides efficient management of members, activities, projects, finances, and communication, all through a modern, intuitive, and responsive interface.
+
+## What is SociApp?
+
+SociApp streamlines the complex administrative tasks faced by neighborhood associations, allowing organizations to:
+
+- Manage member directories with detailed contact information and membership status
+- Track projects from inception through completion with budget monitoring
+- Schedule and coordinate activities with monitor assignments
+- Handle financial operations including donations, bank accounts, and board management
+- Communicate directly with members through integrated messaging
+
+## Key Benefits
+
+### For Neighborhood Associations
+
+**Centralized Management**: All member data, activities, and projects in one secure platform, eliminating scattered spreadsheets and paper records.
+
+**Digital Membership Cards**: Virtual member cards with quick access to basic information and membership status, reducing administrative overhead.
+
+**Financial Transparency**: Detailed tracking of donations and inheritances to meet fiscal transparency requirements, with integrated budget monitoring.
+
+**Efficient Communication**: Send individual or mass emails to members with immediate notification feedback, keeping everyone informed.
+
+### User Experience
+
+**Mobile-First Design**: Sticky bottom navigation on mobile devices provides ergonomic navigation similar to native apps.
+
+**Dark/Light Mode**: Native support for visual themes to match user preferences and reduce eye strain.
+
+**Dynamic Views**: Expandable lists with micro-animations for clean visualization of complex information.
+
+## Technology Stack
+
+### Frontend
+
+- **Framework**: [Vue.js 3](https://vuejs.org/) with Composition API
+- **State Management**: [Pinia](https://pinia.vuejs.org/)
+- **Styling**: Vanilla CSS with modern variables and responsive design
+- **Charts**: Chart.js and Vue-ChartJS for data visualization
+- **Icons**: Material Symbols Outlined
+
+### Backend
+
+- **Framework**: [NestJS](https://nestjs.com/) for scalable architecture
+- **Database**: [TypeORM](https://typeorm.io/) with MySQL persistence
+- **Authentication**: JWT-based security with role-based access control
+- **Email**: Integrated mail service using Nodemailer
+- **File Upload**: Built-in support for project documentation (PDF)
+
+### Infrastructure
+
+- **Containerization**: Docker and Docker Compose for reproducible environments
+- **Web Server**: Nginx for serving frontend in production
+- **Node.js**: Version 22+ (Alpine-based containers)
+
+## Core Features
+
+### Member Management
+
+- Complete directory with contact information, ID numbers, and addresses
+- Membership status control (active/inactive)
+- Fee type and payment method tracking
+- User categories (Monitor, Volunteer, Member, etc.)
+
+### Project Administration
+
+- Project tracking with customizable states (Active, Pending, Completed)
+- Document management with PDF attachment support
+- Budget tracking and funding source monitoring
+- Activity linkage for consolidated tracking
+
+### Activities & Events
+
+- Schedule activities with location, day of week, and time ranges
+- Assign monitors responsible for each activity
+- Link activities to framework projects
+
+### Financial & Configuration
+
+- Association legal information management (Name, Tax ID, Contact)
+- Board of directors registry and organizational chart
+- Bank account administration (IBAN/SWIFT)
+- Donation and inheritance tracking
+- Institutional relationship directory
+
+## Get Started
+
+Ready to deploy SociApp for your organization? Check out the [Quickstart](/quickstart) guide to get up and running in minutes with Docker.
+
+For detailed installation instructions including manual setup options, see the [Installation](/installation) guide.

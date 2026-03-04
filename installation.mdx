@@ -1,0 +1,459 @@
+---
+title: Installation
+description: Complete installation guide for SociApp with Docker and manual setup options
+---
+
+# Installation Guide
+
+This guide covers both Docker-based and manual installation of SociApp. Docker is the recommended approach for most users.
+
+## System Requirements
+
+### Minimum Requirements
+
+- **CPU**: 2 cores
+- **RAM**: 2GB minimum, 4GB recommended
+- **Storage**: 5GB available space
+- **OS**: Linux, macOS, or Windows with WSL2
+
+### Software Requirements
+
+<Tabs>
+  <Tab title="Docker Installation">
+    - Docker Engine 20.10+
+    - Docker Compose 2.0+
+  </Tab>
+  <Tab title="Manual Installation">
+    - Node.js 20.19.0 or 22.12.0+
+    - npm 9.0+
+    - MySQL 8.0+ or compatible database
+  </Tab>
+</Tabs>
+
+## Docker Installation (Recommended)
+
+Docker provides a consistent, reproducible environment across all platforms.
+
+### Step 1: Clone the Repository
+
+```bash
+git clone <your-repository-url>
+cd sociapp
+```
+
+### Step 2: Configure Environment Variables
+
+Create a `.env` file in the `backend` directory:
+
+```bash
+cd backend
+```
+
+Create the file with the following configuration:
+
+```bash
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=3306
+DB_USERNAME=sociapp_user
+DB_PASSWORD=your_secure_password
+DB_DATABASE=sociapp_db
+
+# Application Settings
+PORT=3000
+NODE_ENV=production
+
+# Frontend URL (comma-separated for multiple origins)
+FRONTEND_URL=http://localhost:5173,http://localhost
+
+# JWT Authentication
+JWT_SECRET=your-very-secure-random-string-min-32-chars
+JWT_EXPIRES_IN=24h
+
+# Email Configuration
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_SECURE=false
+MAIL_USER=your-email@gmail.com
+MAIL_PASSWORD=your-app-password
+MAIL_FROM="SociApp <noreply@sociapp.com>"
+```
+
+<Warning>
+**Security Note**: Never commit the `.env` file to version control. The JWT_SECRET should be a strong random string of at least 32 characters.
+</Warning>
+
+<Tip>
+Generate a secure JWT secret using:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+</Tip>
+
+### Step 3: Configure Docker Compose
+
+Edit `docker-compose.yml` to match your environment. Update the IP address or domain:
+
+```yaml
+services:
+  backend:
+    build: ./backend
+    container_name: nest-backend
+    restart: always
+    env_file:
+      - ./backend/.env
+    environment:
+      - FRONTEND_URL=http://your-domain-or-ip
+    networks:
+      - app-network
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    volumes:
+      - ./backend/uploads:/app/uploads
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        - VITE_API_URL=http://your-domain-or-ip:3000
+    container_name: vue-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+```
+
+### Step 4: Build and Start Containers
+
+```bash
+cd ..
+docker-compose up -d --build
+```
+
+This command will:
+1. Build the backend container using Node.js 22 Alpine
+2. Build the frontend container with Nginx
+3. Start both services in detached mode
+4. Create the necessary network bridge
+
+### Step 5: Verify Installation
+
+Check container status:
+
+```bash
+docker ps
+```
+
+View backend logs:
+
+```bash
+docker logs -f nest-backend
+```
+
+View frontend logs:
+
+```bash
+docker logs -f vue-frontend
+```
+
+### Step 6: Access SociApp
+
+Open your browser and navigate to `http://localhost` (or your configured domain).
+
+## Manual Installation
+
+For development or custom deployments, you can install SociApp manually.
+
+<Tabs>
+  <Tab title="Backend Setup">
+
+### Install Backend Dependencies
+
+```bash
+cd backend
+npm install
+```
+
+### Configure Environment
+
+Create a `.env` file in the `backend` directory with the configuration shown above.
+
+### Set Up Database
+
+Create the database:
+
+```sql
+CREATE DATABASE sociapp_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'sociapp_user'@'localhost' IDENTIFIED BY 'your_secure_password';
+GRANT ALL PRIVILEGES ON sociapp_db.* TO 'sociapp_user'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+<Note>
+TypeORM will automatically create tables based on your entities when the application starts.
+</Note>
+
+### Build and Run Backend
+
+For development:
+
+```bash
+npm run start:dev
+```
+
+For production:
+
+```bash
+npm run build
+npm run start:prod
+```
+
+The backend will run on `http://localhost:3000`.
+
+  </Tab>
+  <Tab title="Frontend Setup">
+
+### Install Frontend Dependencies
+
+```bash
+cd frontend
+npm install
+```
+
+### Configure API URL
+
+Create a `.env` file in the `frontend` directory:
+
+```bash
+VITE_API_URL=http://localhost:3000
+```
+
+### Run Frontend
+
+For development:
+
+```bash
+npm run dev
+```
+
+The frontend will run on `http://localhost:5173`.
+
+For production build:
+
+```bash
+npm run build
+```
+
+This generates a `dist` folder that can be served by any static web server.
+
+### Serve Production Build
+
+Using a simple HTTP server:
+
+```bash
+npm install -g serve
+serve -s dist -l 80
+```
+
+Or configure Nginx to serve the `dist` directory.
+
+  </Tab>
+</Tabs>
+
+## Database Setup
+
+### TypeORM Configuration
+
+The backend uses TypeORM for database management. Configuration is handled in the `AppModule`:
+
+```typescript
+TypeOrmModule.forRoot({
+  type: 'mysql',
+  host: process.env.DB_HOST,
+  port: parseInt(process.env.DB_PORT),
+  username: process.env.DB_USERNAME,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_DATABASE,
+  entities: [__dirname + '/**/*.entity{.ts,.js}'],
+  synchronize: process.env.NODE_ENV !== 'production',
+  logging: process.env.NODE_ENV === 'development',
+})
+```
+
+<Warning>
+**Important**: Set `synchronize: false` in production and use migrations to manage schema changes.
+</Warning>
+
+### Initial Data
+
+After the application starts, you can seed initial data through the API or create a seed script.
+
+## Environment Variables Reference
+
+### Backend Environment Variables
+
+| Variable | Required | Description | Example |
+|----------|----------|-------------|----------|
+| `DB_HOST` | Yes | Database host | `localhost` |
+| `DB_PORT` | Yes | Database port | `3306` |
+| `DB_USERNAME` | Yes | Database username | `sociapp_user` |
+| `DB_PASSWORD` | Yes | Database password | `secure_password` |
+| `DB_DATABASE` | Yes | Database name | `sociapp_db` |
+| `PORT` | No | Application port | `3000` |
+| `FRONTEND_URL` | Yes | Allowed CORS origins | `http://localhost:5173` |
+| `JWT_SECRET` | Yes | JWT signing secret | `random-32-char-string` |
+| `JWT_EXPIRES_IN` | No | JWT expiration time | `24h` |
+| `MAIL_HOST` | No | SMTP server host | `smtp.gmail.com` |
+| `MAIL_PORT` | No | SMTP server port | `587` |
+| `MAIL_USER` | No | SMTP username | `user@example.com` |
+| `MAIL_PASSWORD` | No | SMTP password | `app_password` |
+
+### Frontend Environment Variables
+
+| Variable | Required | Description | Example |
+|----------|----------|-------------|----------|
+| `VITE_API_URL` | Yes | Backend API URL | `http://localhost:3000` |
+
+## Docker Management Script
+
+SociApp includes a convenient management script:
+
+```bash
+./docker.sh
+```
+
+The script provides an interactive menu to:
+
+- Select containers (frontend, backend, or both)
+- Build & Start containers
+- Restart containers
+- Stop containers
+- View logs in real-time
+
+## Production Deployment
+
+### Security Considerations
+
+<Warning>
+Before deploying to production:
+
+1. Change all default passwords
+2. Use a strong JWT secret (32+ characters)
+3. Enable HTTPS with SSL certificates
+4. Set `NODE_ENV=production`
+5. Disable TypeORM `synchronize` in production
+6. Configure proper CORS origins
+7. Set up regular database backups
+</Warning>
+
+### Reverse Proxy Setup
+
+For production, use Nginx as a reverse proxy:
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    location / {
+        proxy_pass http://localhost:80;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    location /api {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+### SSL/TLS Configuration
+
+Use Let's Encrypt for free SSL certificates:
+
+```bash
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d your-domain.com
+```
+
+## Troubleshooting
+
+### Port Conflicts
+
+If ports 80, 3000, or 3001 are in use:
+
+```bash
+# Check what's using the port
+lsof -i :80
+lsof -i :3000
+
+# Modify docker-compose.yml to use different ports
+ports:
+  - "8080:80"  # Map container port 80 to host port 8080
+```
+
+### Database Connection Issues
+
+Verify database connectivity:
+
+```bash
+mysql -h localhost -u sociapp_user -p sociapp_db
+```
+
+Check backend logs for connection errors:
+
+```bash
+docker logs nest-backend 2>&1 | grep -i error
+```
+
+### Container Build Failures
+
+Clear Docker cache and rebuild:
+
+```bash
+docker-compose down
+docker system prune -a
+docker-compose up -d --build
+```
+
+### File Upload Issues
+
+Ensure the uploads directory exists and has proper permissions:
+
+```bash
+mkdir -p backend/uploads/projects
+chmod 755 backend/uploads
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/features/configuration">
+    Configure advanced settings and features
+  </Card>
+  <Card title="User Guide" icon="book" href="/guides/authentication">
+    Learn how to use SociApp features
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/auth/register">
+    Explore the REST API endpoints
+  </Card>
+  <Card title="Deployment" icon="rocket" href="/guides/docker-deployment">
+    Deploy SociApp to production
+  </Card>
+</CardGroup>

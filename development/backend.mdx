@@ -1,0 +1,718 @@
+---
+title: Backend Development
+description: Complete guide to SociApp's NestJS backend architecture, modules, and development patterns
+---
+
+## Overview
+
+The backend is built with NestJS 11, providing a scalable, enterprise-grade API server with TypeScript, dependency injection, and modular architecture.
+
+## Technology Stack
+
+### Core Framework
+
+```json
+{
+  "@nestjs/common": "^11.0.1",
+  "@nestjs/core": "^11.0.1",
+  "@nestjs/platform-express": "^11.0.1",
+  "reflect-metadata": "^0.2.2",
+  "rxjs": "^7.8.1"
+}
+```
+
+### Database & ORM
+
+```json
+{
+  "@nestjs/typeorm": "^11.0.0",
+  "typeorm": "^0.3.28",
+  "mysql2": "^3.16.3"
+}
+```
+
+### Authentication & Security
+
+```json
+{
+  "@nestjs/jwt": "^11.0.2",
+  "@nestjs/passport": "^11.0.5",
+  "passport": "^0.7.0",
+  "passport-jwt": "^4.0.1",
+  "bcrypt": "^6.0.0"
+}
+```
+
+### Additional Features
+
+```json
+{
+  "@nestjs-modules/mailer": "^1.8.1",
+  "@nestjs/config": "^4.0.3",
+  "@nestjs/throttler": "^6.5.0",
+  "@nestjs/cache-manager": "^3.1.0",
+  "@nestjs/serve-static": "^5.0.4",
+  "class-validator": "^0.14.3",
+  "class-transformer": "^0.5.1"
+}
+```
+
+## Application Entry Point
+
+The application bootstraps in `src/main.ts`:
+
+```typescript
+import { NestFactory } from '@nestjs/core'
+import { AppModule } from './app.module'
+import { ValidationPipe } from '@nestjs/common'
+import 'reflect-metadata'
+import 'dotenv/config'
+import * as fs from 'fs'
+import { join } from 'path'
+
+async function bootstrap() {
+  // Ensure uploads directory exists
+  const uploadDir = join(process.cwd(), 'uploads', 'projects')
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true })
+  }
+
+  const app = await NestFactory.create(AppModule)
+  const cookieParser = require('cookie-parser')
+  app.use(cookieParser())
+
+  // CORS Configuration
+  const allowedOrigins = process.env.FRONTEND_URL
+    ? process.env.FRONTEND_URL.split(',').map(url => url.trim().replace(/\/$/, ''))
+    : ['http://localhost:5173', 'http://16.171.57.244']
+
+  app.enableCors({
+    origin: allowedOrigins,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+
+  // Global Validation Pipe
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,              // Remove unknown properties
+      forbidNonWhitelisted: true,   // Reject requests with extra properties
+      transform: true,              // Auto-transform types
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+    })
+  )
+
+  await app.listen(process.env.PORT ?? 3000)
+}
+bootstrap()
+```
+
+### Bootstrap Process
+
+1. **Create upload directories**: Ensures file storage paths exist
+2. **Initialize NestJS app**: Creates application instance
+3. **Configure middleware**: Cookie parser for authentication
+4. **Enable CORS**: Allow frontend cross-origin requests
+5. **Global validation**: DTO validation for all endpoints
+6. **Start server**: Listen on configured port (default 3000)
+
+## NestJS Architecture
+
+### Module Structure
+
+NestJS applications are organized into modules. The root module is `AppModule`:
+
+```typescript
+import { Module } from '@nestjs/common'
+import { TypeOrmModule } from '@nestjs/typeorm'
+import { ConfigModule, ConfigService } from '@nestjs/config'
+import { ServeStaticModule } from '@nestjs/serve-static'
+import { MailerModule } from '@nestjs-modules/mailer'
+import { ThrottlerModule } from '@nestjs/throttler'
+import { CacheModule } from '@nestjs/cache-manager'
+import * as path from 'path'
+import { join } from 'path'
+
+// Feature Modules
+import { StatsModule } from './stats/stats.module'
+import { UsersModule } from './users/users.module'
+import { ActivitiesModule } from './activities/activities.module'
+import { ProjectModule } from './projects/project.module'
+import { AuthModule } from './auth/auth.module'
+import { MailModule } from './mail/mail.module'
+import { ConfiguracionModule } from './configuracion/configuracion.module'
+
+@Module({
+  imports: [
+    // Cache Configuration
+    CacheModule.register({
+      ttl: 60000,  // 60 seconds
+      max: 100,    // Max items
+      isGlobal: true,
+    }),
+
+    // Environment Configuration
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: path.resolve(__dirname, '../../.env')
+    }),
+
+    // Email Configuration
+    MailerModule.forRoot({
+      transport: {
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false,
+        auth: {
+          user: 'noreplysociapp@gmail.com',
+          pass: process.env.SMTP_PASSWORD
+        },
+      },
+      defaults: {
+        from: '"SociApp" <noreplysociapp@gmail.com>',
+      },
+    }),
+
+    // Database Configuration
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        type: 'mysql',
+        host: configService.get('DB_HOST'),
+        port: configService.get('DB_PORT'),
+        username: configService.get('DB_USERNAME'),
+        password: configService.get('DB_PASSWORD'),
+        database: configService.get('DB_NAME'),
+        entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        synchronize: false,  // Never true in production!
+      }),
+    }),
+
+    // Rate Limiting
+    ThrottlerModule.forRoot([{
+      ttl: 60,    // Time window in seconds
+      limit: 10,  // Max requests per window
+    }]),
+
+    // Static File Serving
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'uploads'),
+      serveRoot: '/uploads',
+    }),
+
+    // Feature Modules
+    StatsModule,
+    UsersModule,
+    ActivitiesModule,
+    ProjectModule,
+    AuthModule,
+    ConfiguracionModule,
+    MailModule,
+  ],
+  controllers: [],
+  providers: [],
+})
+export class AppModule { }
+```
+
+### Module Pattern: Controllers → Services → Repositories
+
+Each feature module follows this pattern:
+
+```typescript
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([EntityClass]),
+  ],
+  controllers: [FeatureController],
+  providers: [FeatureService],
+  exports: [FeatureService],  // Export for use in other modules
+})
+export class FeatureModule {}
+```
+
+## Controllers, Services, Entities Pattern
+
+### Controller Layer
+
+Controllers handle HTTP requests and responses.
+
+#### Example: Users Controller
+
+```typescript
+import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common'
+import { UsersService } from './users.service'
+import { CreateUserDto } from './dto/create-user.dto'
+import { EditUserDto } from './dto/edit-user.dto'
+import { RemoveUserDto } from './dto/remove-user.dto'
+import { JwtAuthGuard } from '../auth/jwt-auth.guard'
+import { RolesGuard } from '../auth/roles.guard'
+import { Roles } from '../auth/roles.decorator'
+
+@Controller('users')
+@UseGuards(JwtAuthGuard, RolesGuard)  // Protect all routes
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {}
+
+  @Get()
+  @Roles('monitor', 'admin')
+  getUsersData() {
+    return this.usersService.getUsersData()
+  }
+
+  @Post()
+  @Roles('monitor', 'admin')
+  create(@Body() dto: CreateUserDto) {
+    return this.usersService.createUser(dto)
+  }
+
+  @Post('edit')
+  @Roles('monitor', 'admin')
+  edit(@Body() dto: EditUserDto) {
+    return this.usersService.editUser(dto)
+  }
+
+  @Post('delete')
+  @Roles('monitor', 'admin')
+  delete(@Body() dto: RemoveUserDto) {
+    return this.usersService.removeUser(dto)
+  }
+}
+```
+
+### Service Layer
+
+Services contain business logic.
+
+```typescript
+import { Injectable } from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
+import { Usuarios } from './user.entity'
+import { CreateUserDto } from './dto/create-user.dto'
+
+@Injectable()
+export class UsersService {
+  constructor(
+    @InjectRepository(Usuarios)
+    private usersRepository: Repository<Usuarios>,
+  ) {}
+
+  async getUsersData() {
+    return this.usersRepository.find()
+  }
+
+  async createUser(dto: CreateUserDto) {
+    const user = this.usersRepository.create(dto)
+    return this.usersRepository.save(user)
+  }
+
+  async findByEmail(email: string) {
+    return this.usersRepository.findOne({ where: { email } })
+  }
+
+  async findById(id: number) {
+    return this.usersRepository.findOne({ where: { IdUsuario: id } })
+  }
+}
+```
+
+### Entity Layer
+
+Entities define database schema using TypeORM decorators. See [Database Documentation](/development/database) for details.
+
+## Authentication Module
+
+The auth module handles JWT-based authentication.
+
+### Auth Module Configuration
+
+```typescript
+import { Module } from '@nestjs/common'
+import { JwtModule } from '@nestjs/jwt'
+import { AuthService } from './auth.service'
+import { JwtStrategy } from './jwt.strategy'
+import { UsersModule } from 'src/users/users.module'
+import { MailModule } from 'src/mail/mail.module'
+import { AuthController } from './auth.controller'
+
+@Module({
+  imports: [
+    UsersModule,
+    MailModule,
+    JwtModule.register({}),  // Secret configured in AuthService
+  ],
+  controllers: [AuthController],
+  providers: [AuthService, JwtStrategy],
+})
+export class AuthModule { }
+```
+
+### Auth Service
+
+Location: `src/auth/auth.service.ts`
+
+Key features:
+- User registration with email verification
+- Password hashing with bcrypt (12 rounds)
+- JWT token generation (access + refresh)
+- Email verification code handling
+- Token refresh mechanism
+
+```typescript
+import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common'
+import { JwtService } from '@nestjs/jwt'
+import * as bcrypt from 'bcrypt'
+import { UsersService } from '../users/users.service'
+import { MailService } from 'src/mail/mail.service'
+
+@Injectable()
+export class AuthService {
+  constructor(
+    private usersService: UsersService,
+    private jwtService: JwtService,
+    private mailService: MailService,
+  ) { }
+
+  async register(dto: RegisterDto) {
+    const existingUser = await this.usersService.findByEmail(dto.email)
+    if (existingUser) throw new ConflictException('Email already exists')
+
+    const hashedPassword = await bcrypt.hash(dto.password, 12)
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
+    const verificationExpires = new Date()
+    verificationExpires.setMinutes(verificationExpires.getMinutes() + 15)
+
+    const user = await this.usersService.create({
+      ...dto,
+      password: hashedPassword,
+      verificationCode,
+      verificationExpires,
+      isVerified: false,
+    })
+
+    this.mailService.sendVerificationCode(user.email, verificationCode)
+    return { message: 'Check your email for verification code' }
+  }
+
+  async generateTokens(user: User) {
+    const payload = { sub: user.IdUsuario, email: user.email }
+
+    const accessToken = this.jwtService.sign(payload, {
+      secret: process.env.JWT_ACCESS_SECRET,
+      expiresIn: '15m',
+    })
+
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: process.env.JWT_REFRESH_SECRET,
+      expiresIn: '7d',
+    })
+
+    return { access_token: accessToken, refresh_token: refreshToken }
+  }
+}
+```
+
+## Middleware and Guards
+
+### JWT Authentication Guard
+
+```typescript
+import { Injectable, ExecutionContext } from '@nestjs/common'
+import { AuthGuard } from '@nestjs/passport'
+
+@Injectable()
+export class JwtAuthGuard extends AuthGuard('jwt') {
+  canActivate(context: ExecutionContext) {
+    return super.canActivate(context)
+  }
+}
+```
+
+### Roles Guard
+
+```typescript
+import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common'
+import { Reflector } from '@nestjs/core'
+import { ROLES_KEY } from './roles.decorator'
+
+@Injectable()
+export class RolesGuard implements CanActivate {
+  constructor(private reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const requiredRoles = this.reflector.getAllAndOverride<string[]>(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ])
+
+    if (!requiredRoles) {
+      return true
+    }
+
+    const { user } = context.switchToHttp().getRequest()
+    const userRole = user.categoria.toLowerCase()
+
+    return requiredRoles.some(role => 
+      role.toLowerCase() === userRole
+    )
+  }
+}
+```
+
+### Roles Decorator
+
+```typescript
+import { SetMetadata } from '@nestjs/common'
+
+export const ROLES_KEY = 'roles'
+export const Roles = (...roles: string[]) => SetMetadata(ROLES_KEY, roles)
+```
+
+### Usage Example
+
+```typescript
+@Controller('projects')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class ProjectController {
+  @Get()
+  @Roles('monitor', 'admin')
+  getAll() {
+    // Only accessible to monitor and admin roles
+  }
+}
+```
+
+## File Uploads
+
+The projects module handles PDF file uploads using Multer.
+
+### Upload Configuration
+
+```typescript
+import { 
+  Controller, Post, UseInterceptors, UploadedFiles, 
+  BadRequestException 
+} from '@nestjs/common'
+import { FilesInterceptor } from '@nestjs/platform-express'
+import { diskStorage } from 'multer'
+import { extname, join } from 'path'
+
+@Controller('projects')
+export class ProjectController {
+  @Post()
+  @UseInterceptors(FilesInterceptor('pdf', 10, {
+    storage: diskStorage({
+      destination: join(process.cwd(), 'uploads', 'projects'),
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+        cb(null, `${file.fieldname}-${uniqueSuffix}${extname(file.originalname)}`)
+      },
+    }),
+    fileFilter: (req, file, cb) => {
+      if (!file.mimetype.match(/\/(pdf)$/)) {
+        return cb(new BadRequestException('Only PDF files allowed'), false)
+      }
+      cb(null, true)
+    },
+    limits: {
+      fileSize: 10 * 1024 * 1024,  // 10MB max
+    },
+  }))
+  create(@Body() dto: CreateProjectDto, @UploadedFiles() files: Express.Multer.File[]) {
+    if (files && files.length > 0) {
+      dto.pdfPath = files.map(file => `/uploads/projects/${file.filename}`)
+    }
+    return this.projectService.createProject(dto)
+  }
+}
+```
+
+### File Upload Features
+
+- **Multiple files**: Up to 10 PDFs per request
+- **File validation**: Only PDF MIME types allowed
+- **Size limit**: 10MB per file
+- **Unique naming**: Timestamp + random suffix
+- **Storage location**: `/uploads/projects/`
+- **Static serving**: Files accessible via `/uploads/projects/{filename}`
+
+## Email Service
+
+The mail module sends emails via Gmail SMTP.
+
+### Mail Service
+
+Location: `src/mail/mail.service.ts`
+
+```typescript
+import { Injectable } from '@nestjs/common'
+import { MailerService } from '@nestjs-modules/mailer'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
+import { Usuarios } from '../users/user.entity'
+
+@Injectable()
+export class MailService {
+  constructor(
+    private readonly mailerService: MailerService,
+    @InjectRepository(Usuarios)
+    private readonly userRepository: Repository<Usuarios>,
+  ) { }
+
+  async sendVerificationCode(to: string, code: string) {
+    const subject = 'Código de verificación - SociApp'
+    const html = `
+      <div style="font-family: Arial; max-width: 600px; margin: auto;">
+        <h2>Verifica tu cuenta</h2>
+        <p>Utiliza el siguiente código:</p>
+        <div style="font-size: 32px; font-weight: bold; padding: 20px;">
+          ${code}
+        </div>
+        <p>Este código expirará en 15 minutos.</p>
+      </div>
+    `
+
+    await this.mailerService.sendMail({ to, subject, html })
+    return { success: true }
+  }
+
+  async sendToAllSocios(subject: string, message: string) {
+    const socios = await this.userRepository.find({ 
+      where: { socio: 'Socio' } 
+    })
+    const emails = socios.map(s => s.email).filter(e => e)
+
+    if (emails.length === 0) {
+      return { success: false, message: 'No members with email' }
+    }
+
+    return this.sendMail(emails, subject, message)
+  }
+}
+```
+
+### Email Templates
+
+- **Verification Email**: 6-digit code for registration
+- **Custom Messages**: Admin can send to all members
+- **Professional Design**: HTML templates with branding
+
+## Data Validation (DTOs)
+
+Data Transfer Objects use class-validator for validation.
+
+### Example DTO
+
+```typescript
+import { IsEmail, IsString, MinLength, IsOptional, IsEnum } from 'class-validator'
+
+export class CreateUserDto {
+  @IsString()
+  nombre: string
+
+  @IsString()
+  apellidos: string
+
+  @IsEmail()
+  email: string
+
+  @IsString()
+  @MinLength(8)
+  password: string
+
+  @IsString()
+  dni: string
+
+  @IsOptional()
+  @IsString()
+  direccion?: string
+
+  @IsEnum(['Socio', 'NoSocio'])
+  socio: 'Socio' | 'NoSocio'
+}
+```
+
+### Validation Features
+
+- **Automatic validation**: Global ValidationPipe
+- **Type transformation**: Auto-convert types
+- **Whitelist mode**: Strip unknown properties
+- **Strict mode**: Reject extra properties
+
+## Development Workflow
+
+### Creating a New Feature Module
+
+```bash
+# Generate module
+nest g module feature
+
+# Generate controller
+nest g controller feature
+
+# Generate service
+nest g service feature
+```
+
+### Running the Server
+
+```bash
+# Development with watch mode
+npm run start:dev
+
+# Production mode
+npm run start:prod
+
+# Debug mode
+npm run start:debug
+```
+
+### Testing
+
+```bash
+# Unit tests
+npm run test
+
+# E2E tests
+npm run test:e2e
+
+# Test coverage
+npm run test:cov
+```
+
+## Error Handling
+
+NestJS provides built-in exception filters.
+
+```typescript
+import { NotFoundException, BadRequestException } from '@nestjs/common'
+
+// Throw exceptions
+throw new NotFoundException('User not found')
+throw new BadRequestException('Invalid data')
+throw new UnauthorizedException('Invalid credentials')
+throw new ConflictException('Email already exists')
+```
+
+## Logging
+
+```typescript
+import { Logger } from '@nestjs/common'
+
+@Injectable()
+export class MyService {
+  private readonly logger = new Logger(MyService.name)
+
+  async someMethod() {
+    this.logger.log('Processing request')
+    this.logger.error('An error occurred', trace)
+    this.logger.warn('Warning message')
+    this.logger.debug('Debug info')
+  }
+}
+```

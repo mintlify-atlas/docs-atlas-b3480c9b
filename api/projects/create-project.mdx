@@ -1,0 +1,163 @@
+---
+title: 'Create Project'
+api: 'POST /projects'
+---
+
+Creates a new project with optional PDF file uploads.
+
+## Authentication
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication
+</ParamField>
+
+**Required Roles:** `monitor` or `admin`
+
+## Content Type
+
+**Important:** This endpoint accepts `multipart/form-data` to support file uploads.
+
+## Request Body
+
+<ParamField body="nombre" type="string" required>
+  Project name (max 255 characters)
+</ParamField>
+
+<ParamField body="descripcion" type="string">
+  Detailed project description
+</ParamField>
+
+<ParamField body="estado" type="string" required>
+  Current project status (max 50 characters). Examples: "Planificado", "En Progreso", "Completado"
+</ParamField>
+
+<ParamField body="responsableId" type="number" required>
+  User ID of the project manager/responsible person
+</ParamField>
+
+<ParamField body="presupuesto" type="number" required>
+  Project budget (decimal value)
+</ParamField>
+
+<ParamField body="fuenteFinanciacion" type="string">
+  Funding source (max 150 characters)
+</ParamField>
+
+<ParamField body="startDate" type="string" required>
+  Project start date in ISO 8601 format (YYYY-MM-DD)
+</ParamField>
+
+<ParamField body="endDate" type="string">
+  Project end date in ISO 8601 format (YYYY-MM-DD)
+</ParamField>
+
+<ParamField body="notas" type="string">
+  Additional notes or comments about the project
+</ParamField>
+
+<ParamField body="subproyectos" type="array">
+  Array of subproject identifiers
+</ParamField>
+
+<ParamField body="activityIds" type="array">
+  Array of activity IDs to associate with the project. Each element should be a number.
+</ParamField>
+
+<ParamField body="pdf" type="file[]">
+  PDF files to upload (max 10 files, 10MB each)
+  
+  **File Upload Restrictions:**
+  - Field name: `pdf`
+  - Maximum files: 10
+  - Allowed format: PDF only
+  - Maximum file size: 10MB per file
+  - Files are stored in `/uploads/projects/` directory
+</ParamField>
+
+## Response
+
+Returns the created project object with all fields populated, including:
+
+<ResponseField name="idProyecto" type="number">
+  Auto-generated unique identifier for the project
+</ResponseField>
+
+<ResponseField name="pdfPath" type="array">
+  Array of uploaded PDF file paths in the format `/uploads/projects/{filename}`
+</ResponseField>
+
+<ResponseField name="responsable" type="object">
+  Full user object of the responsible person
+</ResponseField>
+
+<ResponseField name="detallesActividades" type="array">
+  Array of activity details with id and nombre for each associated activity
+</ResponseField>
+
+## Example Request
+
+```bash
+curl -X POST https://api.sociapp.com/projects \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "nombre=Community Development Project" \
+  -F "descripcion=A project to improve community infrastructure" \
+  -F "estado=Planificado" \
+  -F "responsableId=5" \
+  -F "presupuesto=50000.00" \
+  -F "fuenteFinanciacion=Municipal Budget" \
+  -F "startDate=2024-01-15" \
+  -F "endDate=2024-12-31" \
+  -F "activityIds[0]=1" \
+  -F "activityIds[1]=2" \
+  -F "pdf=@project-proposal.pdf" \
+  -F "pdf=@budget-breakdown.pdf"
+```
+
+## Example Response
+
+```json
+{
+  "idProyecto": 1,
+  "nombre": "Community Development Project",
+  "descripcion": "A project to improve community infrastructure",
+  "estado": "Planificado",
+  "presupuesto": 50000.00,
+  "fuenteFinanciacion": "Municipal Budget",
+  "startDate": "2024-01-15",
+  "endDate": "2024-12-31",
+  "notas": null,
+  "subproyectos": [],
+  "actividades": ["1", "2"],
+  "pdfPath": [
+    "/uploads/projects/pdf-1234567890-123456789.pdf",
+    "/uploads/projects/pdf-1234567890-987654321.pdf"
+  ],
+  "responsable": {
+    "IdUsuario": 5,
+    "Nombre": "John",
+    "Apellido": "Doe"
+  },
+  "responsableId": 5,
+  "detallesActividades": [
+    { "id": 1, "nombre": "Planning" },
+    { "id": 2, "nombre": "Execution" }
+  ]
+}
+```
+
+## Error Responses
+
+### 400 Bad Request
+```json
+{
+  "statusCode": 400,
+  "message": "Solo se permiten archivos PDF"
+}
+```
+Returned when attempting to upload non-PDF files.
+
+### 401 Unauthorized
+Returned when the authentication token is missing or invalid.
+
+### 403 Forbidden
+Returned when the user does not have the required role (monitor or admin).

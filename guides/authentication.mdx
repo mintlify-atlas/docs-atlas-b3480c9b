@@ -1,0 +1,371 @@
+---
+title: Authentication
+description: Learn how to implement JWT-based authentication with email verification in SociApp
+---
+
+SociApp uses JWT (JSON Web Tokens) for secure authentication with a two-token system: access tokens for API requests and refresh tokens for long-term sessions.
+
+## Authentication Flow
+
+<Steps>
+  <Step title="User Registration">
+    Users register with their email and password. The system generates a 6-digit verification code that expires in 15 minutes.
+
+    ```typescript
+    // backend/src/auth/auth.service.ts:23
+    async register(dto: RegisterDto) {
+      const existingUser = await this.usersService.findByEmail(dto.email);
+      if (existingUser) throw new ConflictException('Email already exists');
+
+      const hashedPassword = await bcrypt.hash(dto.password, 12);
+
+      // Generate 6-digit verification code
+      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const verificationExpires = new Date();
+      verificationExpires.setMinutes(verificationExpires.getMinutes() + 15);
+
+      const userData = {
+        ...dto,
+        password: hashedPassword,
+        fechaalta: new Date(dto.fechaalta),
+        fechabaja: dto.fechabaja ? new Date(dto.fechabaja) : undefined,
+        verificationCode,
+        verificationExpires,
+        isVerified: false,
+      };
+
+      const user = await this.usersService.create(userData);
+
+      // Send verification email
+      this.mailService.sendVerificationCode(user.email, verificationCode).catch(err => {
+        console.error('Failed to send verification email:', err);
+      });
+
+      return { message: 'User registered successfully. Please check your email for verification code.' };
+    }
+    ```
+  </Step>
+
+  <Step title="Email Verification">
+    Users verify their email using the 6-digit code. Upon successful verification, they receive authentication tokens.
+
+    ```typescript
+    // backend/src/auth/auth.service.ts:56
+    async verifyEmail(email: string, code: string) {
+      const user = await this.usersService.findByEmail(email);
+      if (!user) throw new UnauthorizedException('User not found');
+
+      if (user.isVerified) return { message: 'Email already verified' };
+
+      if (!user.verificationExpires || new Date() > user.verificationExpires) {
+        await this.usersService.removeUser({ dni: user.dni });
+        throw new UnauthorizedException(
+          'El código ha expirado. Su registro ha sido eliminado por seguridad.'
+        );
+      }
+
+      if (user.verificationCode !== code) {
+        throw new UnauthorizedException('Código de verificación incorrecto.');
+      }
+
+      user.isVerified = true;
+      user.verificationCode = null;
+      user.verificationExpires = null;
+      await this.usersService.updateVerificationStatus(user.IdUsuario, true);
+
+      return this.generateTokens(user);
+    }
+    ```
+  </Step>
+
+  <Step title="User Login">
+    Verified users can log in with their email and password.
+
+    ```typescript
+    // backend/src/auth/auth.controller.ts:60
+    @UseGuards(ThrottlerGuard)
+    @Post('login')
+    @HttpCode(200)
+    async login(
+      @Body() dto: LoginDto,
+      @Res({ passthrough: true }) res: Response,
+    ) {
+      const tokens = await this.authService.login(dto.email, dto.password);
+
+      this.setRefreshCookie(res, tokens.refresh_token);
+
+      return { access_token: tokens.access_token };
+    }
+    ```
+
+    The login process validates credentials and checks email verification status:
+
+    ```typescript
+    // backend/src/auth/auth.service.ts:99
+    async validateUser(email: string, password: string) {
+      const user = await this.usersService.findByEmail(email);
+
+      if (!user) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
+      const passwordValid = await bcrypt.compare(password, user.password);
+
+      if (!passwordValid) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
+      if (!user.isVerified) {
+        if (user.verificationExpires && new Date() > user.verificationExpires) {
+          await this.usersService.removeUser({ dni: user.dni });
+          throw new UnauthorizedException(
+            'Su registro ha expirado por falta de verificación y ha sido eliminado.'
+          );
+        }
+        throw new UnauthorizedException(
+          'Por favor, verifique su correo electrónico antes de iniciar sesión.'
+        );
+      }
+
+      return user;
+    }
+    ```
+  </Step>
+
+  <Step title="Token Generation">
+    The system generates two JWT tokens with different expiration times:
+
+    ```typescript
+    // backend/src/auth/auth.service.ts:130
+    async generateTokens(user: User) {
+      const payload = {
+        sub: user.IdUsuario,
+        email: user.email,
+      };
+
+      const accessToken = this.jwtService.sign(payload, {
+        secret: process.env.JWT_ACCESS_SECRET,
+        expiresIn: '15m',
+      });
+
+      const refreshToken = this.jwtService.sign(payload, {
+        secret: process.env.JWT_REFRESH_SECRET,
+        expiresIn: '7d',
+      });
+
+      return {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      };
+    }
+    ```
+
+    - **Access Token**: Short-lived (15 minutes), sent in Authorization header
+    - **Refresh Token**: Long-lived (7 days), stored in HttpOnly cookie
+  </Step>
+</Steps>
+
+## Token Refresh Mechanism
+
+When the access token expires, use the refresh token to obtain a new pair of tokens:
+
+```typescript
+// backend/src/auth/auth.controller.ts:76
+@UseGuards(ThrottlerGuard)
+@Post('refresh')
+@HttpCode(200)
+async refresh(
+  @Req() req: Request,
+  @Res({ passthrough: true }) res: Response,
+) {
+  const refreshToken = req.cookies?.refresh_token;
+
+  if (!refreshToken) {
+    throw new Error('No refresh token provided');
+  }
+
+  const tokens = await this.authService.refreshToken(refreshToken);
+
+  this.setRefreshCookie(res, tokens.refresh_token);
+
+  return { access_token: tokens.access_token };
+}
+```
+
+The refresh process verifies the token and checks for identity mismatches:
+
+```typescript
+// backend/src/auth/auth.service.ts:153
+async refreshToken(token: string) {
+  if (!token) {
+    throw new UnauthorizedException('No refresh token provided');
+  }
+
+  try {
+    const payload = this.jwtService.verify(token, {
+      secret: process.env.JWT_REFRESH_SECRET,
+    });
+
+    const user = await this.usersService.findById(payload.sub);
+
+    if (!user) {
+      throw new UnauthorizedException('User no longer exists');
+    }
+
+    // Security: Verify email to prevent ID collision attacks
+    if (user.email !== payload.email) {
+      throw new UnauthorizedException('Identity mismatch');
+    }
+
+    return this.generateTokens(user);
+  } catch (error) {
+    if (error instanceof UnauthorizedException) throw error;
+    throw new UnauthorizedException('Invalid refresh token');
+  }
+}
+```
+
+## JWT Strategy
+
+The JWT strategy validates access tokens and loads user data:
+
+```typescript
+// backend/src/auth/jwt.strategy.ts:23
+async validate(payload: any): Promise<User | null> {
+  try {
+    if (!payload.sub || !payload.email) {
+      this.logger.warn('[JWT] Payload missing sub or email');
+      return null;
+    }
+
+    const user = await this.usersService.findById(Number(payload.sub));
+
+    if (!user) {
+      this.logger.error(`[JWT] Usuario no encontrado en DB con ID: ${payload.sub}`);
+      return null;
+    }
+
+    // Security: Verify email matches to prevent ID recycling attacks
+    if (user.email !== payload.email) {
+      this.logger.error(
+        `[JWT] Mismatch de identidad detectado. Token Email: ${payload.email}, DB Email: ${user.email}`
+      );
+      return null;
+    }
+
+    return user;
+  } catch (error) {
+    this.logger.error('[JWT] Error crítico validando usuario:', error);
+    return null;
+  }
+}
+```
+
+## Security Features
+
+### Rate Limiting
+
+All authentication endpoints use `@UseGuards(ThrottlerGuard)` to prevent brute force attacks:
+
+```typescript
+// backend/src/auth/auth.controller.ts:25
+@UseGuards(ThrottlerGuard)
+@Post('register')
+async register(@Body() dto: RegisterDto) {
+  return this.authService.register(dto);
+}
+```
+
+### HttpOnly Cookies
+
+Refresh tokens are stored in secure HttpOnly cookies:
+
+```typescript
+// backend/src/auth/auth.controller.ts:122
+private setRefreshCookie(res: Response, token: string) {
+  res.cookie('refresh_token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/auth/refresh',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  });
+}
+```
+
+### Password Hashing
+
+Passwords are hashed using bcrypt with 12 rounds:
+
+```typescript
+const hashedPassword = await bcrypt.hash(dto.password, 12);
+```
+
+## Resending Verification Code
+
+If the verification code expires or is lost, users can request a new one:
+
+```typescript
+// backend/src/auth/auth.controller.ts:51
+@Post('resend-code')
+@HttpCode(200)
+async resendCode(@Body() dto: ResendCodeDto) {
+  return this.authService.resendVerificationCode(dto.email);
+}
+```
+
+## Getting Current User
+
+Protected endpoints can access the authenticated user:
+
+```typescript
+// backend/src/auth/auth.controller.ts:103
+@UseGuards(JwtAuthGuard)
+@Get('me')
+getProfile(@Req() req: Request) {
+  const user = req.user as any;
+  if (!user) return null;
+
+  // Never return password, even if hashed
+  const { password, ...userWithoutPassword } = user;
+
+  return userWithoutPassword;
+}
+```
+
+## Logout
+
+Logging out clears the refresh token cookie:
+
+```typescript
+// backend/src/auth/auth.controller.ts:96
+@Post('logout')
+@HttpCode(200)
+async logout(@Res({ passthrough: true }) res: Response) {
+  res.clearCookie('refresh_token', { path: '/auth/refresh' });
+  return { message: 'Logged out successfully' };
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Token Expiration">
+    - Access tokens expire in 15 minutes to minimize exposure
+    - Refresh tokens expire in 7 days to balance security and UX
+    - Expired verification codes trigger account deletion for security
+  </Accordion>
+
+  <Accordion title="Environment Variables">
+    Required environment variables:
+    - `JWT_ACCESS_SECRET`: Secret for access tokens
+    - `JWT_REFRESH_SECRET`: Secret for refresh tokens (must be different)
+    - `NODE_ENV`: Set to 'production' for HTTPS-only cookies
+  </Accordion>
+
+  <Accordion title="Error Handling">
+    - Always use generic error messages for failed authentication
+    - Log detailed errors server-side for debugging
+    - Never expose password hashes or internal details
+  </Accordion>
+</AccordionGroup>

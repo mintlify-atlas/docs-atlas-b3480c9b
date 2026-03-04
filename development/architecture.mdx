@@ -1,0 +1,463 @@
+---
+title: System Architecture
+description: Comprehensive overview of SociApp's system architecture, technology stack, and design patterns
+---
+
+## Overview
+
+SociApp is a full-stack web application built with modern web technologies, designed for managing social organization activities, members, and projects. The application follows a client-server architecture with clear separation of concerns.
+
+## Technology Stack
+
+### Frontend
+- **Framework**: Vue.js 3.5.27 with Composition API
+- **State Management**: Pinia 3.0.4
+- **Routing**: Vue Router 5.0.2
+- **Styling**: Tailwind CSS 4.1.18
+- **Build Tool**: Vite 7.3.1
+- **HTTP Client**: Axios 1.13.5
+- **Charts**: Chart.js 4.5.1 with Vue-ChartJS 5.3.3
+- **PDF Handling**: pdfjs-dist 5.4.624
+
+### Backend
+- **Framework**: NestJS 11.0.1
+- **Runtime**: Node.js (^20.19.0 || >=22.12.0)
+- **Database ORM**: TypeORM 0.3.28
+- **Database**: MySQL 3.16.3
+- **Authentication**: JWT with Passport (passport-jwt 4.0.1)
+- **Password Hashing**: bcrypt 6.0.0
+- **Email**: Nodemailer 8.0.1 with @nestjs-modules/mailer 1.8.1
+- **File Upload**: Multer 2.0.0
+- **Rate Limiting**: @nestjs/throttler 6.5.0
+- **Caching**: @nestjs/cache-manager 3.1.0
+
+## System Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         Client Layer                         │
+│  ┌────────────┐  ┌────────────┐  ┌─────────────────────┐   │
+│  │   Vue 3    │  │   Pinia    │  │   Vue Router        │   │
+│  │ Components │  │   Stores   │  │   Navigation        │   │
+│  └────────────┘  └────────────┘  └─────────────────────┘   │
+│                          │                                    │
+│                     Axios HTTP                                │
+└──────────────────────────┼──────────────────────────────────┘
+                           │
+                      CORS Enabled
+                    (credentials: true)
+                           │
+┌──────────────────────────┼──────────────────────────────────┐
+│                     Server Layer                             │
+│  ┌──────────────────────┴─────────────────────────┐         │
+│  │         NestJS Application (Port 3000)         │         │
+│  │  ┌──────────────────────────────────────────┐  │         │
+│  │  │        Middleware & Guards               │  │         │
+│  │  │  • Cookie Parser                         │  │         │
+│  │  │  • CORS Configuration                    │  │         │
+│  │  │  • Global Validation Pipe                │  │         │
+│  │  │  • JWT Auth Guard                        │  │         │
+│  │  │  • Roles Guard (admin/monitor)           │  │         │
+│  │  │  • Throttler (60s / 10 requests)         │  │         │
+│  │  └──────────────────────────────────────────┘  │         │
+│  │                                                 │         │
+│  │  ┌──────────────────────────────────────────┐  │         │
+│  │  │             Module Layer                 │  │         │
+│  │  │  • AuthModule (JWT Strategy)             │  │         │
+│  │  │  • UsersModule                           │  │         │
+│  │  │  • ActivitiesModule                      │  │         │
+│  │  │  • ProjectModule                         │  │         │
+│  │  │  • StatsModule                           │  │         │
+│  │  │  • MailModule                            │  │         │
+│  │  │  • ConfiguracionModule                   │  │         │
+│  │  └──────────────────────────────────────────┘  │         │
+│  │                     │                           │         │
+│  │  ┌──────────────────┴────────────────────────┐ │         │
+│  │  │    Controllers → Services → Repositories  │ │         │
+│  │  └───────────────────────────────────────────┘ │         │
+│  └──────────────────────┬──────────────────────────┘         │
+└─────────────────────────┼────────────────────────────────────┘
+                          │
+                   TypeORM ORM
+                          │
+┌─────────────────────────┼────────────────────────────────────┐
+│                  Database Layer                               │
+│  ┌────────────────────────────────────────────────┐          │
+│  │              MySQL Database                    │          │
+│  │  • usuarios (users)                            │          │
+│  │  • proyectos (projects)                        │          │
+│  │  • actividades (activities)                    │          │
+│  │  • donativo (donations)                        │          │
+│  │  • banco (banks)                               │          │
+│  └────────────────────────────────────────────────┘          │
+└───────────────────────────────────────────────────────────────┘
+
+┌───────────────────────────────────────────────────────────────┐
+│                    External Services                          │
+│  • SMTP Server (Gmail): noreplysociapp@gmail.com             │
+│  • File Storage: /uploads/projects/ (static serving)         │
+└───────────────────────────────────────────────────────────────┘
+```
+
+## Frontend-Backend Communication
+
+### API Communication Pattern
+
+1. **Base Configuration**: Frontend uses Axios with a configured base URL
+2. **Authentication**: JWT tokens stored in localStorage and sent via Authorization header
+3. **Credentials**: CORS configured with `credentials: true` for cookie support
+4. **Request Flow**:
+   - Client initiates request through Pinia store action
+   - Axios interceptor adds JWT token to headers
+   - Backend validates token through JwtAuthGuard
+   - RolesGuard checks user permissions
+   - Controller receives validated request
+   - Service processes business logic
+   - Repository handles database operations
+   - Response flows back through the chain
+
+### API Endpoints Structure
+
+```typescript
+/auth/*          - Authentication endpoints
+  POST /register         - User registration
+  POST /login           - User login
+  POST /verify-email    - Email verification
+  POST /resend-code     - Resend verification code
+  GET  /me              - Get current user
+  POST /logout          - User logout
+
+/users/*         - User management (protected)
+  GET  /                - Get all users
+  POST /                - Create user
+  POST /edit            - Edit user
+  POST /delete          - Delete user
+
+/projects/*      - Project management (protected)
+  GET  /                - Get all projects
+  POST /                - Create project (with PDF upload)
+  PUT  /:id             - Update project
+  DELETE /:id           - Delete project
+
+/activities/*    - Activity management (protected)
+  GET  /                - Get all activities
+  POST /                - Create activity
+  PUT  /:id             - Update activity
+  DELETE /:id           - Delete activity
+
+/stats/*         - Statistics (protected)
+  GET  /                - Get application statistics
+
+/mail/*          - Email service (protected)
+  POST /send            - Send email
+  POST /send-all        - Send to all members
+```
+
+## Authentication Flow
+
+### Registration & Verification Process
+
+```
+1. User Registration
+   ┌─────────────┐
+   │   Client    │
+   └──────┬──────┘
+          │ POST /auth/register
+          │ { email, password, ...userData }
+          ▼
+   ┌──────────────┐
+   │  AuthService │
+   └──────┬───────┘
+          │
+          ├─► Hash password (bcrypt, salt rounds: 12)
+          ├─► Generate 6-digit verification code
+          ├─► Set expiration (15 minutes)
+          ├─► Save user (isVerified: false)
+          └─► Send verification email (async)
+          │
+          ▼
+   Return: { message: 'Check email for code' }
+
+2. Email Verification
+   ┌─────────────┐
+   │   Client    │
+   └──────┬──────┘
+          │ POST /auth/verify-email
+          │ { email, code }
+          ▼
+   ┌──────────────┐
+   │  AuthService │
+   └──────┬───────┘
+          │
+          ├─► Verify code matches
+          ├─► Check expiration
+          ├─► Set isVerified: true
+          ├─► Clear verification code
+          └─► Generate JWT tokens
+          │
+          ▼
+   Return: { access_token, refresh_token }
+```
+
+### JWT Token Strategy
+
+```typescript
+// Access Token
+- Secret: process.env.JWT_ACCESS_SECRET
+- Expiration: 15 minutes
+- Payload: { sub: userId, email }
+- Usage: API authentication
+
+// Refresh Token  
+- Secret: process.env.JWT_REFRESH_SECRET
+- Expiration: 7 days
+- Payload: { sub: userId, email }
+- Usage: Token renewal
+```
+
+### Login Flow
+
+```
+Client                  AuthService              UsersService          Database
+  │                         │                         │                    │
+  ├─POST /auth/login────────►                         │                    │
+  │ {email, password}       │                         │                    │
+  │                         ├─validateUser()──────────►                    │
+  │                         │                         ├─findByEmail()─────►
+  │                         │                         ◄───User entity──────┤
+  │                         ├─bcrypt.compare()        │                    │
+  │                         ├─Check isVerified        │                    │
+  │                         ├─generateTokens()        │                    │
+  │◄────{tokens}────────────┤                         │                    │
+  │                         │                         │                    │
+  ├─Store access_token      │                         │                    │
+  ├─GET /auth/me───────────►                         │                    │
+  │                         ├─JWT verify──────────────►                    │
+  │                         │                         ├─findById()────────►
+  │◄────User data───────────┴─────────────────────────┴────────────────────┤
+```
+
+## File Structure
+
+### Backend Structure
+
+```
+backend/src/
+├── main.ts                    # Application entry point
+├── app.module.ts              # Root module
+├── app.controller.ts          # Root controller
+├── app.service.ts             # Root service
+├── auth/                      # Authentication module
+│   ├── auth.module.ts
+│   ├── auth.controller.ts
+│   ├── auth.service.ts
+│   ├── jwt.strategy.ts        # JWT Passport strategy
+│   ├── jwt-auth.guard.ts      # JWT guard
+│   ├── roles.guard.ts         # Role-based access guard
+│   └── roles.decorator.ts     # Roles decorator
+├── users/                     # User management
+│   ├── users.module.ts
+│   ├── users.controller.ts
+│   ├── users.service.ts
+│   ├── user.entity.ts         # TypeORM entity
+│   └── dto/                   # Data Transfer Objects
+├── projects/                  # Project management
+│   ├── project.module.ts
+│   ├── project.controller.ts
+│   ├── project.service.ts
+│   ├── project.entity.ts
+│   └── dto/
+├── activities/                # Activity management
+│   ├── activities.module.ts
+│   ├── activities.controller.ts
+│   ├── activities.service.ts
+│   ├── activity.entity.ts
+│   └── dto/
+├── mail/                      # Email service
+│   ├── mail.module.ts
+│   ├── mail.controller.ts
+│   └── mail.service.ts
+├── stats/                     # Statistics
+├── configuracion/             # Configuration
+├── donativos/                 # Donations
+└── bancos/                    # Banks
+```
+
+### Frontend Structure
+
+```
+frontend/src/
+├── main.ts                    # Application entry point
+├── App.vue                    # Root component
+├── router/
+│   └── index.ts               # Route definitions & guards
+├── stores/                    # Pinia state management
+│   ├── auth.js                # Authentication state
+│   ├── users.js               # Users state
+│   ├── projects.js            # Projects state
+│   ├── activities.js          # Activities state
+│   ├── configuracion.js       # Configuration state
+│   └── notification.js        # Notifications state
+├── views/                     # Page components
+│   ├── Landing.vue
+│   ├── HomeView.vue
+│   ├── Usuarios.vue
+│   ├── Proyectos.vue
+│   ├── Actividades.vue
+│   ├── Configuracion.vue
+│   └── Mensajeria.vue
+├── components/                # Reusable components
+│   ├── Menu.vue
+│   ├── LoginModal.vue
+│   ├── RegisterModal.vue
+│   ├── VerificationModal.vue
+│   ├── ModalForm.vue
+│   ├── ModalEdit.vue
+│   ├── ModalDelete.vue
+│   ├── Chart.vue
+│   ├── PdfPreview.vue
+│   └── ...
+├── composables/               # Vue composables
+├── formSchemas/               # Form validation schemas
+├── assets/                    # Static assets
+│   ├── main.css
+│   ├── modals.css
+│   ├── configuracion.css
+│   └── logo.png
+└── api.js                     # Axios configuration
+```
+
+## Technology Choices & Rationale
+
+### Why Vue.js 3?
+- **Composition API**: Better code organization and reusability
+- **Performance**: Virtual DOM with optimized reactivity system
+- **Developer Experience**: Excellent TypeScript support, Vue DevTools
+- **Ecosystem**: Rich ecosystem with Pinia, Vue Router, Vite
+
+### Why NestJS?
+- **TypeScript-first**: Strong typing for better code quality
+- **Modular Architecture**: Clean separation of concerns
+- **Built-in Features**: Guards, interceptors, pipes, decorators
+- **Enterprise-ready**: Scalable architecture for growing applications
+- **Dependency Injection**: Easy testing and maintainability
+
+### Why TypeORM?
+- **TypeScript Support**: Native TypeScript decorators
+- **Active Record & Data Mapper**: Flexible patterns
+- **Migration Support**: Version control for database schema
+- **Relationship Handling**: Clean entity relationships
+
+### Why Pinia over Vuex?
+- **Simpler API**: Less boilerplate, more intuitive
+- **TypeScript Support**: Better type inference
+- **Composition API**: Native support for Vue 3 patterns
+- **DevTools**: Excellent debugging capabilities
+- **Modular**: Each store is independent
+
+## Security Features
+
+### Backend Security
+
+1. **Password Security**
+   - bcrypt hashing with 12 salt rounds
+   - Passwords never stored in plain text
+
+2. **Authentication**
+   - JWT-based stateless authentication
+   - Separate access and refresh tokens
+   - Token expiration (15min access, 7 day refresh)
+
+3. **Authorization**
+   - Role-based access control (RBAC)
+   - Route guards: JwtAuthGuard + RolesGuard
+   - Supported roles: 'monitor', 'admin'
+
+4. **Input Validation**
+   - Global ValidationPipe with whitelist: true
+   - Rejects unknown properties (forbidNonWhitelisted)
+   - DTO-based validation with class-validator
+
+5. **Rate Limiting**
+   - Throttler: 10 requests per 60 seconds
+   - Prevents brute force attacks
+
+6. **CORS Protection**
+   - Configurable allowed origins from env
+   - Credentials enabled for cookie support
+   - Specific methods and headers whitelisted
+
+7. **Email Verification**
+   - 6-digit verification codes
+   - 15-minute expiration
+   - Auto-deletion of unverified accounts
+
+### Frontend Security
+
+1. **Token Storage**
+   - Access tokens in localStorage
+   - Automatic injection into Axios headers
+
+2. **Route Protection**
+   - Router beforeEach guards
+   - Authentication and role checks
+   - Automatic redirects for unauthorized access
+
+3. **State Management**
+   - Centralized auth state
+   - Automatic token refresh handling
+   - Session persistence
+
+## Performance Optimizations
+
+### Frontend
+- **Code Splitting**: Dynamic imports for routes
+- **Lazy Loading**: Components loaded on demand
+- **Vite Build**: Fast HMR and optimized production builds
+- **Component Transitions**: Smooth UX with fade effects
+
+### Backend
+- **Caching**: Cache Manager with 60s TTL, max 100 items
+- **Database Indexing**: Primary keys and foreign keys
+- **Static File Serving**: Efficient upload serving via ServeStaticModule
+- **Connection Pooling**: MySQL connection pool management
+
+## Environment Configuration
+
+### Backend Environment Variables
+
+```bash
+# Database
+DB_HOST=localhost
+DB_PORT=3306
+DB_USERNAME=root
+DB_PASSWORD=password
+DB_NAME=sociapp
+
+# JWT
+JWT_ACCESS_SECRET=your-access-secret
+JWT_REFRESH_SECRET=your-refresh-secret
+
+# SMTP
+SMTP_PASSWORD=gmail-app-password
+
+# Server
+PORT=3000
+FRONTEND_URL=http://localhost:5173
+```
+
+### Frontend Environment Variables
+
+```bash
+VITE_API_URL=http://localhost:3000
+```
+
+## Deployment Considerations
+
+1. **Database Migrations**: `synchronize: false` in production
+2. **File Uploads**: Persistent storage for `/uploads`
+3. **CORS**: Update FRONTEND_URL for production domain
+4. **HTTPS**: Enable SSL/TLS in production
+5. **Environment Secrets**: Use secure secret management
+6. **Logging**: Implement structured logging for monitoring
+7. **Error Handling**: Global exception filters

@@ -1,0 +1,382 @@
+---
+title: "Bank Accounts"
+description: "Manage association bank accounts (Cuentas Bancarias)"
+---
+
+## List Bank Accounts
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.sociapp.com/configuracion/bancos \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/configuracion/bancos', {
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+const data = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+[
+  {
+    "ID": 1,
+    "Nombre": "Banco Santander",
+    "Direccion": "Gran Vía 25",
+    "CodigoPostal": 28013,
+    "Poblacion": "Madrid",
+    "Pais": "España",
+    "Telefono": "+34 915551234",
+    "CodigoNegocio": "0049",
+    "Referencia_SEPA": "ES12345678",
+    "IBAN": "ES7921000813610123456789",
+    "Swift": "BSCHESMM",
+    "idAsociacion": 1
+  }
+]
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+GET /configuracion/bancos
+```
+
+### Authentication
+
+Requires JWT authentication token.
+
+### Response Fields
+
+<ResponseField name="ID" type="number">
+  Bank account record ID
+</ResponseField>
+
+<ResponseField name="Nombre" type="string" required>
+  Bank name
+</ResponseField>
+
+<ResponseField name="Direccion" type="string">
+  Bank branch address
+</ResponseField>
+
+<ResponseField name="CodigoPostal" type="number">
+  Postal code
+</ResponseField>
+
+<ResponseField name="Poblacion" type="string">
+  City/town
+</ResponseField>
+
+<ResponseField name="Pais" type="string">
+  Country
+</ResponseField>
+
+<ResponseField name="Telefono" type="string">
+  Contact phone number
+</ResponseField>
+
+<ResponseField name="CodigoNegocio" type="string">
+  Business code
+</ResponseField>
+
+<ResponseField name="Referencia_SEPA" type="string">
+  SEPA reference
+</ResponseField>
+
+<ResponseField name="IBAN" type="string" required>
+  International Bank Account Number
+</ResponseField>
+
+<ResponseField name="Swift" type="string">
+  SWIFT/BIC code
+</ResponseField>
+
+<ResponseField name="idAsociacion" type="number">
+  Associated organization ID
+</ResponseField>
+
+---
+
+## Add Bank Account
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.sociapp.com/configuracion/bancos \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Nombre": "Banco Santander",
+    "Direccion": "Gran Vía 25",
+    "CodigoPostal": 28013,
+    "Poblacion": "Madrid",
+    "Pais": "España",
+    "Telefono": "+34 915551234",
+    "CodigoNegocio": "0049",
+    "Referencia_SEPA": "ES12345678",
+    "IBAN": "ES7921000813610123456789",
+    "Swift": "BSCHESMM"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/configuracion/bancos', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    Nombre: 'Banco Santander',
+    Direccion: 'Gran Vía 25',
+    CodigoPostal: 28013,
+    Poblacion: 'Madrid',
+    Pais: 'España',
+    Telefono: '+34 915551234',
+    CodigoNegocio: '0049',
+    Referencia_SEPA: 'ES12345678',
+    IBAN: 'ES7921000813610123456789',
+    Swift: 'BSCHESMM'
+  })
+});
+const data = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "ID": 2,
+  "Nombre": "Banco Santander",
+  "Direccion": "Gran Vía 25",
+  "CodigoPostal": 28013,
+  "Poblacion": "Madrid",
+  "Pais": "España",
+  "Telefono": "+34 915551234",
+  "CodigoNegocio": "0049",
+  "Referencia_SEPA": "ES12345678",
+  "IBAN": "ES7921000813610123456789",
+  "Swift": "BSCHESMM"
+}
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+POST /configuracion/bancos
+```
+
+### Authentication
+
+Requires JWT authentication token.
+
+### Request Body
+
+<ParamField body="Nombre" type="string" required>
+  Bank name (required)
+</ParamField>
+
+<ParamField body="IBAN" type="string" required>
+  International Bank Account Number (required)
+</ParamField>
+
+<ParamField body="Direccion" type="string">
+  Bank branch address
+</ParamField>
+
+<ParamField body="CodigoPostal" type="number">
+  Postal code
+</ParamField>
+
+<ParamField body="Poblacion" type="string">
+  City/town
+</ParamField>
+
+<ParamField body="Pais" type="string">
+  Country
+</ParamField>
+
+<ParamField body="Telefono" type="string">
+  Contact phone number
+</ParamField>
+
+<ParamField body="CodigoNegocio" type="string">
+  Business code
+</ParamField>
+
+<ParamField body="Referencia_SEPA" type="string">
+  SEPA reference
+</ParamField>
+
+<ParamField body="Swift" type="string">
+  SWIFT/BIC code
+</ParamField>
+
+---
+
+## Update Bank Account
+
+<RequestExample>
+```bash cURL
+curl -X PUT https://api.sociapp.com/configuracion/bancos/2 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Nombre": "Banco Santander - Sucursal Centro",
+    "Direccion": "Gran Vía 25",
+    "CodigoPostal": 28013,
+    "Poblacion": "Madrid",
+    "Pais": "España",
+    "Telefono": "+34 915551234",
+    "CodigoNegocio": "0049",
+    "Referencia_SEPA": "ES12345678",
+    "IBAN": "ES7921000813610123456789",
+    "Swift": "BSCHESMM"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/configuracion/bancos/2', {
+  method: 'PUT',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    Nombre: 'Banco Santander - Sucursal Centro',
+    IBAN: 'ES7921000813610123456789',
+    Poblacion: 'Madrid'
+  })
+});
+const data = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "ID": 2,
+  "Nombre": "Banco Santander - Sucursal Centro",
+  "Direccion": "Gran Vía 25",
+  "CodigoPostal": 28013,
+  "Poblacion": "Madrid",
+  "Pais": "España",
+  "Telefono": "+34 915551234",
+  "CodigoNegocio": "0049",
+  "Referencia_SEPA": "ES12345678",
+  "IBAN": "ES7921000813610123456789",
+  "Swift": "BSCHESMM"
+}
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+PUT /configuracion/bancos/:id
+```
+
+### Authentication
+
+Requires JWT authentication token.
+
+### Path Parameters
+
+<ParamField path="id" type="number" required>
+  Bank account record ID
+</ParamField>
+
+### Request Body
+
+All fields are optional for update (partial update supported).
+
+<ParamField body="Nombre" type="string">
+  Bank name
+</ParamField>
+
+<ParamField body="IBAN" type="string">
+  International Bank Account Number
+</ParamField>
+
+<ParamField body="Direccion" type="string">
+  Bank branch address
+</ParamField>
+
+<ParamField body="CodigoPostal" type="number">
+  Postal code
+</ParamField>
+
+<ParamField body="Poblacion" type="string">
+  City/town
+</ParamField>
+
+<ParamField body="Pais" type="string">
+  Country
+</ParamField>
+
+<ParamField body="Telefono" type="string">
+  Contact phone number
+</ParamField>
+
+<ParamField body="CodigoNegocio" type="string">
+  Business code
+</ParamField>
+
+<ParamField body="Referencia_SEPA" type="string">
+  SEPA reference
+</ParamField>
+
+<ParamField body="Swift" type="string">
+  SWIFT/BIC code
+</ParamField>
+
+---
+
+## Delete Bank Account
+
+<RequestExample>
+```bash cURL
+curl -X DELETE https://api.sociapp.com/configuracion/bancos/2 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/configuracion/bancos/2', {
+  method: 'DELETE',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "message": "Bank account deleted successfully"
+}
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+DELETE /configuracion/bancos/:id
+```
+
+### Authentication
+
+Requires JWT authentication token.
+
+### Path Parameters
+
+<ParamField path="id" type="number" required>
+  Bank account record ID to delete
+</ParamField>

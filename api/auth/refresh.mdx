@@ -1,0 +1,193 @@
+---
+title: 'Refresh Token'
+description: 'Obtain a new access token using a refresh token'
+api: 'POST /auth/refresh'
+---
+
+## Description
+
+Generates a new pair of access and refresh tokens using a valid refresh token. The refresh token must be provided as an HTTP-only cookie. This endpoint allows users to maintain their session without re-authenticating.
+
+<Warning>
+  This endpoint is protected by rate limiting (ThrottlerGuard) to prevent abuse of the refresh token mechanism.
+</Warning>
+
+## Authentication
+
+This endpoint requires a valid `refresh_token` cookie to be present in the request. The cookie is automatically set by the `/auth/login` endpoint.
+
+<Info>
+  The refresh token cookie has:
+  - Path: `/auth/refresh`
+  - Max Age: 7 days
+  - HttpOnly: true (cannot be accessed by JavaScript)
+  - SameSite: strict
+  - Secure: true (in production, HTTPS only)
+</Info>
+
+## Request
+
+No request body is required. The refresh token is read from the `refresh_token` cookie.
+
+## Request Example
+
+<CodeGroup>
+
+```bash curl
+curl -X POST https://api.sociapp.com/auth/refresh \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -c cookies.txt
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/auth/refresh', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  credentials: 'include' // Important: includes cookies in request
+});
+
+const data = await response.json();
+```
+
+</CodeGroup>
+
+## Response
+
+### Success Response
+
+<ResponseField name="access_token" type="string">
+  New JWT access token valid for 15 minutes. Use this token in the Authorization header for authenticated requests.
+</ResponseField>
+
+<Info>
+  A new refresh token is also generated and set as an HTTP-only cookie, replacing the previous one. This implements token rotation for enhanced security.
+</Info>
+
+<CodeGroup>
+
+```json 200 OK
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEyMzQ1LCJlbWFpbCI6Imp1YW4uZ2FyY2lhQGV4YW1wbGUuY29tIiwiaWF0IjoxNzA5NTUwOTAwLCJleHAiOjE3MDk1NTE4MDB9.xyz789abc123"
+}
+```
+
+</CodeGroup>
+
+### Error Responses
+
+<CodeGroup>
+
+```json 401 Unauthorized - No Refresh Token
+{
+  "statusCode": 401,
+  "message": "No refresh token provided",
+  "error": "Unauthorized"
+}
+```
+
+```json 401 Unauthorized - Invalid Token
+{
+  "statusCode": 401,
+  "message": "Invalid refresh token",
+  "error": "Unauthorized"
+}
+```
+
+```json 401 Unauthorized - User Not Found
+{
+  "statusCode": 401,
+  "message": "User no longer exists",
+  "error": "Unauthorized"
+}
+```
+
+```json 401 Unauthorized - Identity Mismatch
+{
+  "statusCode": 401,
+  "message": "Identity mismatch",
+  "error": "Unauthorized"
+}
+```
+
+```json 429 Too Many Requests
+{
+  "statusCode": 429,
+  "message": "ThrottlerException: Too Many Requests"
+}
+```
+
+</CodeGroup>
+
+## Security Features
+
+### Token Rotation
+
+Each time you refresh your tokens, both the access token and refresh token are regenerated. The old refresh token becomes invalid, preventing replay attacks.
+
+### Identity Verification
+
+The endpoint performs two security checks:
+
+1. **User Existence**: Verifies that the user ID from the token still exists in the database
+2. **Email Matching**: Compares the email in the token with the current user's email to prevent ID collision attacks
+
+### Token Expiry
+
+- **Access Token**: 15 minutes
+- **Refresh Token**: 7 days
+
+## Refresh Flow
+
+1. Client makes request with `refresh_token` cookie
+2. Server verifies the refresh token using JWT_REFRESH_SECRET
+3. Server extracts user ID and email from token payload
+4. Server checks if user exists in database
+5. Server verifies email matches to prevent ID collisions
+6. Server generates new access and refresh tokens
+7. New access token returned in response body
+8. New refresh token set as HTTP-only cookie
+
+## Usage Pattern
+
+Implement automatic token refresh when the access token expires:
+
+```javascript
+async function makeAuthenticatedRequest(url, options = {}) {
+  let response = await fetch(url, {
+    ...options,
+    headers: {
+      ...options.headers,
+      'Authorization': `Bearer ${accessToken}`
+    },
+    credentials: 'include'
+  });
+
+  // If access token expired, refresh and retry
+  if (response.status === 401) {
+    const refreshResponse = await fetch('/auth/refresh', {
+      method: 'POST',
+      credentials: 'include'
+    });
+    
+    if (refreshResponse.ok) {
+      const { access_token } = await refreshResponse.json();
+      accessToken = access_token;
+      
+      // Retry original request with new token
+      response = await fetch(url, {
+        ...options,
+        headers: {
+          ...options.headers,
+          'Authorization': `Bearer ${accessToken}`
+        },
+        credentials: 'include'
+      });
+    }
+  }
+  
+  return response;
+}
+```

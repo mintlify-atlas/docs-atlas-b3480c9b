@@ -1,0 +1,339 @@
+---
+title: "Board Members"
+description: "Manage association board members (Junta Directiva)"
+---
+
+## List Board Members
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.sociapp.com/configuracion/junta \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/configuracion/junta', {
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+const data = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+[
+  {
+    "id": 1,
+    "idUsuario": 5,
+    "cargo": "Presidente",
+    "Nombre": "Juan",
+    "Apellidos": "García López"
+  },
+  {
+    "id": 2,
+    "idUsuario": 8,
+    "cargo": "Secretario",
+    "Nombre": "María",
+    "Apellidos": "Martínez Ruiz"
+  }
+]
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+GET /configuracion/junta
+```
+
+### Authentication
+
+Requires JWT authentication token.
+
+### Response Fields
+
+<ResponseField name="id" type="number">
+  Board member record ID
+</ResponseField>
+
+<ResponseField name="idUsuario" type="number">
+  User ID of the board member
+</ResponseField>
+
+<ResponseField name="cargo" type="string">
+  Board position/role
+</ResponseField>
+
+<ResponseField name="Nombre" type="string">
+  First name
+</ResponseField>
+
+<ResponseField name="Apellidos" type="string">
+  Last name
+</ResponseField>
+
+---
+
+## Get Available Cargos
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.sociapp.com/configuracion/junta/cargos \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/configuracion/junta/cargos', {
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+const data = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+[
+  { "value": "Presidente", "label": "Presidente" },
+  { "value": "Secretario", "label": "Secretario" },
+  { "value": "Tesorero", "label": "Tesorero" },
+  { "value": "Vocal", "label": "Vocal" }
+]
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+GET /configuracion/junta/cargos
+```
+
+### Authentication
+
+Requires JWT authentication token.
+
+---
+
+## Get Available Users
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.sociapp.com/configuracion/junta/usuarios-lista \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/configuracion/junta/usuarios-lista', {
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+const data = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+[
+  {
+    "idUsuario": 12,
+    "Nombre": "Carlos",
+    "Apellidos": "Fernández Pérez"
+  },
+  {
+    "idUsuario": 15,
+    "Nombre": "Ana",
+    "Apellidos": "Rodríguez Sánchez"
+  }
+]
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+GET /configuracion/junta/usuarios-lista
+```
+
+### Authentication
+
+Requires JWT authentication token.
+
+### Notes
+
+Returns only users who are NOT currently in the board (Junta Directiva).
+
+---
+
+## Add Board Member
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.sociapp.com/configuracion/junta \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "idUsuario": 12,
+    "cargo": "Tesorero"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/configuracion/junta', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    idUsuario: 12,
+    cargo: 'Tesorero'
+  })
+});
+const data = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "id": 3,
+  "idUsuario": 12,
+  "cargo": "Tesorero"
+}
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+POST /configuracion/junta
+```
+
+### Authentication
+
+Requires JWT authentication token.
+
+### Request Body
+
+<ParamField body="idUsuario" type="number" required>
+  User ID to add to the board
+</ParamField>
+
+<ParamField body="cargo" type="string" required>
+  Board position/role (e.g., "Presidente", "Secretario", "Tesorero")
+</ParamField>
+
+---
+
+## Update Board Member
+
+<RequestExample>
+```bash cURL
+curl -X PUT https://api.sociapp.com/configuracion/junta/3 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "idUsuario": 12,
+    "cargo": "Vocal"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/configuracion/junta/3', {
+  method: 'PUT',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    idUsuario: 12,
+    cargo: 'Vocal'
+  })
+});
+const data = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "id": 3,
+  "idUsuario": 12,
+  "cargo": "Vocal"
+}
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+PUT /configuracion/junta/:id
+```
+
+### Authentication
+
+Requires JWT authentication token.
+
+### Path Parameters
+
+<ParamField path="id" type="number" required>
+  Board member record ID
+</ParamField>
+
+### Request Body
+
+<ParamField body="idUsuario" type="number" required>
+  User ID
+</ParamField>
+
+<ParamField body="cargo" type="string" required>
+  Board position/role
+</ParamField>
+
+---
+
+## Delete Board Member
+
+<RequestExample>
+```bash cURL
+curl -X DELETE https://api.sociapp.com/configuracion/junta/3 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/configuracion/junta/3', {
+  method: 'DELETE',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "message": "Board member deleted successfully"
+}
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+DELETE /configuracion/junta/:id
+```
+
+### Authentication
+
+Requires JWT authentication token.
+
+### Path Parameters
+
+<ParamField path="id" type="number" required>
+  Board member record ID to delete
+</ParamField>
