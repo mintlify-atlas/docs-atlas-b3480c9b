@@ -197,3 +197,17 @@ const data = await response.json();
 - The verification code expires after 15 minutes
 - If the user doesn't verify their email within the expiration period, the registration will be deleted when they attempt to log in
 - Rate limiting is applied to prevent abuse and mass registration attempts
+
+## Next Steps
+
+After successful registration:
+1. Check email for verification code (6 digits)
+2. Call [Verify Email](/api/auth/verify-email) endpoint with code
+3. If code expired, use [Resend Code](/api/auth/resend-code) to get a new one
+4. Once verified, you can [login](/api/auth/login) with your credentials
+
+## Related Endpoints
+
+- [Verify Email](/api/auth/verify-email) - Verify email with code
+- [Resend Code](/api/auth/resend-code) - Request new verification code  
+- [Login](/api/auth/login) - Login after verification

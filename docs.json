@@ -73,8 +73,11 @@
             "group": "Authentication",
             "pages": [
               "api/auth/register",
+              "api/auth/verify-email",
               "api/auth/login",
-              "api/auth/refresh"
+              "api/auth/refresh",
+              "api/auth/logout",
+              "api/auth/me"
             ]
           },
           {
@@ -92,7 +95,9 @@
               "api/activities/get-activities",
               "api/activities/create-activity",
               "api/activities/update-activity",
-              "api/activities/delete-activity"
+              "api/activities/delete-activity",
+              "api/activities/get-monitors",
+              "api/activities/get-projects"
             ]
           },
           {
@@ -109,6 +114,7 @@
             "pages": [
               "api/configuration/association-data",
               "api/configuration/board-members",
+              "api/configuration/relationships",
               "api/configuration/banks",
               "api/configuration/donations"
             ]

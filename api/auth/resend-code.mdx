@@ -1,0 +1,133 @@
+---
+title: "Resend Verification Code"
+description: "Request a new email verification code"
+---
+
+## Resend Verification Code
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.sociapp.com/auth/resend-code \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/auth/resend-code', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    email: 'user@example.com'
+  })
+});
+
+const result = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "message": "Verification code sent to email"
+}
+```
+
+```json 400 Bad Request - Already Verified
+{
+  "statusCode": 400,
+  "message": "User is already verified",
+  "error": "Bad Request"
+}
+```
+
+```json 404 Not Found
+{
+  "statusCode": 404,
+  "message": "User not found",
+  "error": "Not Found"
+}
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+POST /auth/resend-code
+```
+
+### Request Body
+
+<ParamField body="email" type="string" required>
+  Email address of the user who needs a new verification code
+</ParamField>
+
+### Use Cases
+
+This endpoint is useful when:
+- Original verification code expired (after 10 minutes)
+- User didn't receive the verification email
+- User accidentally deleted the verification email
+- User needs to re-verify their email address
+
+### Behavior
+
+When this endpoint is called:
+1. Validates that user exists
+2. Checks that user is not already verified
+3. Generates new 6-digit verification code
+4. Updates verification code and expiration in database
+5. Sends new code via email
+6. Returns success message
+
+### Code Generation
+
+- **Format:** 6-digit random numeric code
+- **Expiration:** 10 minutes from generation
+- **Previous Code:** Old code is invalidated and replaced
+
+### Rate Limiting
+
+<Warning>
+  This endpoint has standard rate limiting (60 requests per minute) to prevent abuse. Wait before requesting multiple codes.
+</Warning>
+
+### Email Delivery
+
+The verification email includes:
+- 6-digit code prominently displayed
+- Expiration time (10 minutes)
+- Link back to verification page
+- Sender: SociApp (noreplysociapp@gmail.com)
+
+### Example Integration
+
+```javascript
+async function resendVerificationCode(email) {
+  try {
+    const response = await fetch('/auth/resend-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    
+    if (response.ok) {
+      alert('New verification code sent! Check your email.');
+    } else {
+      const error = await response.json();
+      alert(error.message);
+    }
+  } catch (error) {
+    console.error('Failed to resend code:', error);
+  }
+}
+```
+
+### Related Endpoints
+
+- [Register](/api/auth/register) - Create new user account
+- [Verify Email](/api/auth/verify-email) - Verify email with code
+- [Login](/api/auth/login) - Login after verification

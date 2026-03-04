@@ -1,0 +1,202 @@
+---
+title: "Get Projects for Activities"
+description: "Get list of available projects for activity linking"
+---
+
+## Get Projects List
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.sociapp.com/activities/Projects \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/activities/Projects', {
+  headers: {
+    'Authorization': `Bearer ${accessToken}`
+  }
+});
+
+const projects = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+[
+  {
+    "idProyecto": 1,
+    "nombre": "Programa Deportivo 2024",
+    "estado": "Activo",
+    "presupuesto": 15000.00,
+    "startDate": "2024-01-01",
+    "endDate": "2024-12-31"
+  },
+  {
+    "idProyecto": 3,
+    "nombre": "Actividades Culturales",
+    "estado": "Activo",
+    "presupuesto": 8500.00,
+    "startDate": "2024-03-01",
+    "endDate": "2024-11-30"
+  }
+]
+```
+
+```json 401 Unauthorized
+{
+  "statusCode": 401,
+  "message": "Unauthorized"
+}
+```
+
+```json 403 Forbidden
+{
+  "statusCode": 403,
+  "message": "Insufficient permissions",
+  "error": "Forbidden"
+}
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+GET /activities/Projects
+```
+
+### Authentication
+
+**Required:** JWT Bearer token with `monitor` or `admin` role
+
+### Response
+
+Returns an array of project objects that can be linked to activities.
+
+<ResponseField name="idProyecto" type="number">
+  Unique project identifier
+</ResponseField>
+
+<ResponseField name="nombre" type="string">
+  Project name
+</ResponseField>
+
+<ResponseField name="estado" type="string">
+  Project status: "Activo", "Pendiente", or "Finalizado"
+</ResponseField>
+
+<ResponseField name="presupuesto" type="number">
+  Project budget amount
+</ResponseField>
+
+<ResponseField name="startDate" type="string">
+  Project start date (YYYY-MM-DD format)
+</ResponseField>
+
+<ResponseField name="endDate" type="string | null">
+  Project end date (null if ongoing)
+</ResponseField>
+
+### Use Cases
+
+This endpoint is used when:
+- Creating an activity that belongs to a specific project
+- Editing an activity to link it to a different project
+- Populating a project selector in activity forms
+- Filtering activities by project association
+
+### Activity-Project Relationship
+
+Activities can be linked to one or more projects. This allows:
+- **Budget Tracking:** Associate activity costs with project budgets
+- **Reporting:** Generate project-based activity reports
+- **Organization:** Group related activities under parent projects
+- **Funding:** Track which activities are funded by specific projects
+
+### Example Integration
+
+```javascript
+// Fetch projects for activity form
+async function loadProjectsForForm() {
+  try {
+    const response = await fetch('/activities/Projects', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+    
+    const projects = await response.json();
+    
+    // Create multi-select options
+    const container = document.getElementById('projects-list');
+    projects.forEach(project => {
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.value = project.idProyecto;
+      checkbox.id = `project-${project.idProyecto}`;
+      
+      const label = document.createElement('label');
+      label.htmlFor = checkbox.id;
+      label.textContent = `${project.nombre} (${project.estado})`;
+      
+      container.appendChild(checkbox);
+      container.appendChild(label);
+    });
+  } catch (error) {
+    console.error('Failed to load projects:', error);
+  }
+}
+```
+
+### Vue.js Component Example
+
+```vue
+<template>
+  <div>
+    <label>Link to Projects</label>
+    <div v-for="project in projects" :key="project.idProyecto" class="project-checkbox">
+      <input 
+        type="checkbox" 
+        :id="`project-${project.idProyecto}`"
+        :value="project.idProyecto"
+        v-model="selectedProjects"
+      />
+      <label :for="`project-${project.idProyecto}`">
+        {{ project.nombre }}
+        <span class="badge" :class="project.estado.toLowerCase()">
+          {{ project.estado }}
+        </span>
+      </label>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+
+const projects = ref([]);
+const selectedProjects = ref([]);
+
+onMounted(async () => {
+  const response = await fetch('/activities/Projects', {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+  projects.value = await response.json();
+});
+</script>
+```
+
+### Filtering by Status
+
+You may want to filter projects by status (e.g., only show active projects):
+
+```javascript
+const activeProjects = projects.filter(p => p.estado === 'Activo');
+```
+
+### Related Endpoints
+
+- [Create Activity](/api/activities/create-activity) - Create activity with project links
+- [Update Activity](/api/activities/update-activity) - Update activity project associations
+- [Get Projects](/api/projects/get-projects) - Get all projects with full details

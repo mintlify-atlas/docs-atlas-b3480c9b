@@ -1,0 +1,141 @@
+---
+title: "Verify Email"
+description: "Verify user email address with verification code"
+---
+
+## Verify Email Address
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.sociapp.com/auth/verify-email \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "code": "123456"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/auth/verify-email', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    email: 'user@example.com',
+    code: '123456'
+  })
+});
+
+const data = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK - Verified
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+```json 400 Bad Request - Invalid Code
+{
+  "statusCode": 400,
+  "message": "Invalid or expired verification code",
+  "error": "Bad Request"
+}
+```
+
+```json 404 Not Found - User Not Found
+{
+  "statusCode": 404,
+  "message": "User not found",
+  "error": "Not Found"
+}
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+POST /auth/verify-email
+```
+
+### Request Body
+
+<ParamField body="email" type="string" required>
+  User's email address to verify
+</ParamField>
+
+<ParamField body="code" type="string" required>
+  6-digit verification code sent to email (must match exactly)
+</ParamField>
+
+### Response
+
+Upon successful verification, the user is automatically logged in and receives authentication tokens.
+
+<ResponseField name="access_token" type="string">
+  JWT access token valid for 15 minutes. Use this token in the Authorization header for authenticated requests.
+</ResponseField>
+
+<Note>
+  The refresh token is automatically set as an HTTP-only cookie and is not returned in the response body.
+</Note>
+
+### Verification Code Details
+
+- **Format:** 6-digit numeric code
+- **Expiration:** Codes expire after 10 minutes
+- **Generation:** Automatically sent upon registration
+- **Resend:** Use `/auth/resend-code` endpoint to request a new code
+
+### Auto-Login on Verification
+
+When email verification succeeds:
+1. User account is marked as verified (`isVerified = true`)
+2. Verification code is cleared from database
+3. JWT tokens are generated (access + refresh)
+4. Refresh token stored in HTTP-only cookie
+5. Access token returned in response
+
+### Security Features
+
+- **Rate Limiting:** Standard rate limits apply (60 requests per minute)
+- **Code Expiration:** Prevents use of old verification codes
+- **Single Use:** Verification codes cannot be reused
+- **Secure Cookies:** Refresh token stored in HTTP-only, secure cookie
+
+### Common Error Scenarios
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| Invalid code | Wrong code or expired | Request new code via `/auth/resend-code` |
+| User not found | Email doesn't exist | Check email spelling or register |
+| Code expired | More than 10 minutes passed | Request new code |
+
+### Example Workflow
+
+<Steps>
+  <Step title="User registers">
+    User submits registration form, receives verification email
+  </Step>
+  
+  <Step title="Check email">
+    User receives email with 6-digit code (valid for 10 minutes)
+  </Step>
+  
+  <Step title="Submit verification">
+    User enters code in verification form, app calls this endpoint
+  </Step>
+  
+  <Step title="Auto-login">
+    Upon success, user is logged in and redirected to dashboard
+  </Step>
+</Steps>
+
+### Related Endpoints
+
+- [Register](/api/auth/register) - Create new user account
+- [Resend Code](/api/auth/resend-code) - Request new verification code
+- [Login](/api/auth/login) - Login with verified account

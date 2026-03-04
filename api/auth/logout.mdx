@@ -1,0 +1,148 @@
+---
+title: "Logout"
+description: "Logout and clear authentication cookies"
+---
+
+## Logout User
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.sociapp.com/auth/logout \
+  -H "Content-Type: application/json" \
+  --cookie "refresh_token=YOUR_REFRESH_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.sociapp.com/auth/logout', {
+  method: 'POST',
+  credentials: 'include' // Important: includes cookies
+});
+
+const result = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "message": "Logged out successfully"
+}
+```
+</ResponseExample>
+
+### Endpoint
+
+```http
+POST /auth/logout
+```
+
+### Authentication
+
+<Note>
+  No authentication required. This endpoint can be called by any client to clear cookies.
+</Note>
+
+### Behavior
+
+When this endpoint is called:
+1. Clears the `refresh_token` HTTP-only cookie
+2. Sets cookie path to `/auth/refresh`
+3. Returns success message
+
+### Cookie Clearing
+
+The endpoint clears the refresh token cookie with these parameters:
+- **Cookie Name:** `refresh_token`
+- **Path:** `/auth/refresh`
+- **Action:** Cookie is removed from client
+
+### Client-Side Implementation
+
+After calling logout, the client should:
+1. Clear any stored access tokens from memory/localStorage
+2. Clear user state from application store
+3. Redirect to login page
+4. Remove Authorization headers from future requests
+
+### Example Implementation
+
+```javascript
+// Complete logout flow
+async function logout() {
+  try {
+    // Call logout endpoint
+    const response = await fetch('/auth/logout', {
+      method: 'POST',
+      credentials: 'include'
+    });
+    
+    if (response.ok) {
+      // Clear client-side tokens
+      localStorage.removeItem('access_token');
+      sessionStorage.clear();
+      
+      // Clear application state
+      store.dispatch('auth/logout');
+      
+      // Redirect to login
+      router.push('/');
+    }
+  } catch (error) {
+    console.error('Logout failed:', error);
+  }
+}
+```
+
+### Security Notes
+
+- **HTTP-Only Cookies:** Refresh tokens are stored in HTTP-only cookies and cannot be accessed by JavaScript
+- **Path Restriction:** Cookie is scoped to `/auth/refresh` path only
+- **No Server-Side Invalidation:** Tokens are not invalidated on the server (stateless JWT design)
+- **Token Expiration:** Access tokens naturally expire after 15 minutes
+
+### Token Lifecycle After Logout
+
+| Token Type | What Happens |
+|------------|--------------|
+| Access Token | Client must delete; still valid until expiration (15 min) |
+| Refresh Token | Cookie cleared; cannot be used for refresh |
+
+<Warning>
+  Existing access tokens remain valid until their expiration time. For high-security applications, implement server-side token revocation.
+</Warning>
+
+### Frontend Integration (Vue.js Example)
+
+```javascript
+// In your auth store (Pinia)
+import { defineStore } from 'pinia';
+
+export const useAuthStore = defineStore('auth', {
+  actions: {
+    async logout() {
+      try {
+        // Call logout endpoint
+        await fetch('/auth/logout', {
+          method: 'POST',
+          credentials: 'include'
+        });
+        
+        // Clear local state
+        this.user = null;
+        this.isAuthenticated = false;
+        
+        // Redirect
+        router.push('/');
+      } catch (error) {
+        console.error('Logout error:', error);
+      }
+    }
+  }
+});
+```
+
+### Related Endpoints
+
+- [Login](/api/auth/login) - Authenticate user
+- [Refresh](/api/auth/refresh) - Refresh access token
+- [Get Profile](/api/auth/me) - Get current user info
